@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# PyTorch Models (PENTING: jangan upload model besar!)
+models/indobert-italic/checkpoint-*/
+models/indobert-italic/*/pytorch_model.bin
+*.bin
+*.pth
+*.pt
+*.safetensors
+
+# Logs
+logs/
+*.log
+
+# Data (jika dataset besar)
+# data/*.json  # Uncomment jika dataset > 100MB
+
+# Node.js (Word Add-in)
+word-addin/node_modules/
+word-addin/dist/
+word-addin/.vscode/
+*.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Environment
+.env
+*.env.local
+
+# Office cache
+*.webview-cache/
