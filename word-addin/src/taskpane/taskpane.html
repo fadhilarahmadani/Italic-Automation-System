@@ -1,146 +1,116 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Italic Automation</title>
 
-    <!-- Office.js Library -->
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <!-- Office.js -->
+    <script
+      type="text/javascript"
+      src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"
+    ></script>
 
     <!-- CSS -->
     <link href="taskpane.css" rel="stylesheet" type="text/css" />
-</head>
+  </head>
 
-<body class="ms-welcome">
+  <body class="ms-welcome">
     <div class="container">
-        
-        <!-- HEADER SECTION -->
-        <header class="header">
-            <div class="logo-section">
-                <h1>🔤 Italic Automation</h1>
-                <p class="subtitle">Deteksi otomatis kata asing sesuai PUEBI</p>
-            </div>
-        </header>
+      <!-- HEADER -->
+      <header class="header">
+        <h1>🔤 Italic Automation</h1>
+        <p class="subtitle">Deteksi dan penerapan italic istilah asing sesuai PUEBI</p>
+      </header>
 
-        <!-- SETTINGS SECTION -->
-        <section class="section settings-section">
-            <h3 class="section-title">⚙️ Pengaturan</h3>
-            
-            <div class="setting-item">
-                <label for="apiUrl">Backend API URL:</label>
-                <input 
-                    type="text" 
-                    id="apiUrl" 
-                    class="input-field"
-                    value="http://localhost:8000" 
-                    placeholder="http://localhost:8000"
-                />
-                <small class="help-text">URL backend API (default: localhost)</small>
-            </div>
+      <!-- SETTINGS -->
+      <section class="section settings-section">
+        <h3 class="section-title">⚙️ Pengaturan</h3>
 
-            <div class="setting-item">
-                <label for="threshold">
-                    Confidence Threshold: 
-                    <span class="threshold-value" id="thresholdValue">0.80</span>
-                </label>
-                <input 
-                    type="range" 
-                    id="threshold" 
-                    min="0.5" 
-                    max="1.0" 
-                    step="0.05" 
-                    value="0.80"
-                    class="slider"
-                />
-                <small class="help-text">Semakin tinggi = semakin selektif (0.5 - 1.0)</small>
-            </div>
-        </section>
+        <div class="setting-item">
+          <label for="threshold">
+            Confidence Threshold:
+            <span id="thresholdValue">0.80</span>
+          </label>
+          <input
+            type="range"
+            id="threshold"
+            min="0.5"
+            max="1.0"
+            step="0.05"
+            value="0.80"
+            class="slider"
+            oninput="document.getElementById('thresholdValue').textContent = this.value"
+          />
+          <small class="help-text"> Nilai lebih tinggi = lebih selektif </small>
+        </div>
+      </section>
 
-        <!-- ACTIONS SECTION -->
-        <section class="section actions-section">
-            <h3 class="section-title">🚀 Aksi</h3>
-            
-            <button id="detectBtn" class="btn btn-primary">
-                <span class="btn-icon">🔍</span>
-                <span>Deteksi Kata Asing</span>
-            </button>
+      <!-- ACTIONS -->
+      <section class="section actions-section">
+        <h3 class="section-title">🚀 Aksi</h3>
 
-            <button id="formatBtn" class="btn btn-success">
-                <span class="btn-icon">✨</span>
-                <span>Format Otomatis</span>
-            </button>
+        <button id="detectBtn" class="btn btn-primary">🔍 Deteksi Kata Asing</button>
 
-            <button id="clearBtn" class="btn btn-danger">
-                <span class="btn-icon">🗑️</span>
-                <span>Hapus Semua Italic</span>
-            </button>
-        </section>
+        <button id="formatBtn" class="btn btn-success">✨ Terapkan Italic</button>
 
-        <!-- STATISTICS SECTION -->
-        <section class="section stats-section">
-            <h3 class="section-title">📊 Statistik</h3>
-            
-            <div class="stat-grid">
-                <div class="stat-item">
-                    <div class="stat-label">Kata Terdeteksi</div>
-                    <div class="stat-value" id="detectedCount">0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Sudah Diformat</div>
-                    <div class="stat-value" id="formattedCount">0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Waktu Proses</div>
-                    <div class="stat-value" id="processingTime">-</div>
-                </div>
-            </div>
-        </section>
+        <button id="clearBtn" class="btn btn-danger">🗑️ Hapus Semua Italic</button>
+      </section>
 
-        <!-- RESULTS SECTION (Hidden by default) -->
-        <section id="resultsSection" class="section results-section" style="display: none;">
-            <h3 class="section-title">✨ Hasil Deteksi</h3>
-            <div id="resultsList" class="results-list"></div>
-        </section>
+      <!-- STATISTICS -->
+      <section class="section stats-section">
+        <h3 class="section-title">📊 Statistik</h3>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <div class="stat-label">Kata Terdeteksi</div>
+            <div class="stat-value" id="detectedCount">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Sudah Diformat</div>
+            <div class="stat-value" id="formattedCount">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Waktu Proses</div>
+            <div class="stat-value" id="processingTime">-</div>
+          </div>
+        </div>
+      </section>
 
-        <!-- STATUS BOX -->
-        <section class="section">
-            <div id="statusBox" class="status-box status-info">
-                💡 Siap digunakan. Ketik teks di Word, lalu klik "Deteksi Kata Asing"
-            </div>
-        </section>
+      <!-- RESULTS (WAJIB ADA) -->
+      <section id="resultsSection" class="section results-section" style="display: none">
+        <h3 class="section-title">✨ Istilah Terdeteksi</h3>
+        <ul id="resultsList" class="results-list"></ul>
+      </section>
 
-        <!-- HELP SECTION -->
-        <section class="section help-section">
-            <details>
-                <summary class="help-summary">ℹ️ Cara Penggunaan</summary>
-                <div class="help-content">
-                    <ol>
-                        <li>Pastikan backend API sudah berjalan di terminal</li>
-                        <li>Ketik atau paste teks Indonesia di Word</li>
-                        <li>Klik <strong>"Deteksi Kata Asing"</strong> untuk analisis</li>
-                        <li>Lihat hasil deteksi dengan confidence score</li>
-                        <li>Klik <strong>"Format Otomatis"</strong> untuk apply italic</li>
-                        <li>Gunakan <strong>"Hapus Semua Italic"</strong> untuk reset</li>
-                    </ol>
-                    <p class="help-note">
-                        <strong>Catatan:</strong> Pastikan API backend berjalan di 
-                        <code>http://localhost:8000</code>
-                    </p>
-                </div>
-            </details>
-        </section>
+      <!-- STATUS -->
+      <section class="section">
+        <div id="statusBox" class="status-box status-info">
+          💡 Ketik teks di Word, lalu klik “Deteksi Kata Asing”.
+        </div>
+      </section>
 
-        <!-- FOOTER -->
-        <footer class="footer">
-            <p>© 2025 Italic Automation v1.0</p>
-            <p class="footer-note">Powered by IndoBERT</p>
-        </footer>
+      <!-- HELP -->
+      <section class="section help-section">
+        <details>
+          <summary>ℹ️ Cara Penggunaan</summary>
+          <ol>
+            <li>Pastikan backend API sedang berjalan.</li>
+            <li>Tulis atau tempel teks ilmiah di Word.</li>
+            <li>Klik <strong>Deteksi Kata Asing</strong>.</li>
+            <li>Klik <strong>Terapkan Italic</strong>.</li>
+          </ol>
+          <p>Sistem akan menerapkan italic langsung ke dokumen tanpa mengubah isi teks.</p>
+        </details>
+      </section>
 
+      <!-- FOOTER -->
+      <footer class="footer">
+        <p>© 2026 Italic Automation</p>
+      </footer>
     </div>
 
-    <!-- JavaScript -->
+    <!-- JS -->
     <script type="text/javascript" src="taskpane.js"></script>
-</body>
+  </body>
 </html>

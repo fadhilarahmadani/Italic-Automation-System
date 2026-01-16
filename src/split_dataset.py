@@ -3,7 +3,7 @@ import json
 import random
 from pathlib import Path
 
-def split_dataset(input_path, output_dir, train_ratio=0.8, val_ratio=0.1, seed=42):
+def split_dataset(input_path, output_dir, train_ratio=0.7, val_ratio=0.15, seed=42):
     """
     Split dataset menjadi train, validation, dan test
     
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     split_dataset(
         input_path="data/italic_dataset.json",
         output_dir="data",
-        train_ratio=0.8,
-        val_ratio=0.1,
+        train_ratio=0.7,
+        val_ratio=0.15,
         seed=42
     )

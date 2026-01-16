@@ -152,7 +152,7 @@ def main():
     for i, row in enumerate(cm):
         print(f"{config.ID2LABEL[i]:^5}", "  ".join(f"{val:^5}" for val in row))
     
-    # Save results
+    # menyimpan hasil model terbaik
     results_path = config.MODEL_DIR / "indobert-italic" / "test_results.json"
     results = {
         "classification_report": report,

@@ -6,7 +6,7 @@ def validate_dataset(path):
     with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    print(f"📊 Total data: {len(data)}")
+    print(f"Total data: {len(data)}")
     
     errors = []
     for i, item in enumerate(data):
@@ -26,12 +26,12 @@ def validate_dataset(path):
             errors.append(f"Data {i+1}: Invalid labels: {invalid}")
     
     if errors:
-        print("\n❌ Dataset memiliki error:")
+        print("\n Dataset memiliki error:")
         for err in errors:
             print(f"   - {err}")
         return False
     else:
-        print("✅ Dataset valid!")
+        print("Dataset valid!")
         
         # Statistik
         total_tokens = sum(len(item['tokens']) for item in data)
@@ -39,7 +39,7 @@ def validate_dataset(path):
         total_i = sum(item['labels'].count('I') for item in data)
         total_o = sum(item['labels'].count('O') for item in data)
         
-        print(f"\n📈 Statistik:")
+        print(f"\n Statistik:")
         print(f"   Total tokens: {total_tokens}")
         print(f"   Label B: {total_b} ({total_b/total_tokens*100:.1f}%)")
         print(f"   Label I: {total_i} ({total_i/total_tokens*100:.1f}%)")

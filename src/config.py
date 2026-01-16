@@ -32,4 +32,4 @@ LOGGING_STEPS = 50
 SAVE_STEPS = 100
 EVAL_STEPS = 100
 
-print("✅ Configuration loaded")
+print(" Configuration loaded")
