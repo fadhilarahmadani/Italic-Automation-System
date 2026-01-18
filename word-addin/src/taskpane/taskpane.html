@@ -18,13 +18,15 @@
 
   <body class="ms-welcome">
     <div class="container">
-      <!-- HEADER -->
+      <!-- ================= HEADER ================= -->
       <header class="header">
         <h1>🔤 Italic Automation</h1>
-        <p class="subtitle">Deteksi dan penerapan italic istilah asing sesuai PUEBI</p>
+        <p class="subtitle">
+          Deteksi dan penerapan italic istilah asing sesuai PUEBI
+        </p>
       </header>
 
-      <!-- SETTINGS -->
+      <!-- ================= SETTINGS ================= -->
       <section class="section settings-section">
         <h3 class="section-title">⚙️ Pengaturan</h3>
 
@@ -41,35 +43,45 @@
             step="0.05"
             value="0.80"
             class="slider"
-            oninput="document.getElementById('thresholdValue').textContent = this.value"
           />
-          <small class="help-text"> Nilai lebih tinggi = lebih selektif </small>
+          <small class="help-text">
+            Nilai lebih tinggi = lebih selektif
+          </small>
         </div>
       </section>
 
-      <!-- ACTIONS -->
+      <!-- ================= ACTIONS ================= -->
       <section class="section actions-section">
         <h3 class="section-title">🚀 Aksi</h3>
 
-        <button id="detectBtn" class="btn btn-primary">🔍 Deteksi Kata Asing</button>
+        <button id="detectBtn" class="btn btn-primary">
+          🔍 Deteksi Kata Asing
+        </button>
 
-        <button id="formatBtn" class="btn btn-success">✨ Terapkan Italic</button>
+        <button id="formatBtn" class="btn btn-success">
+          ✨ Terapkan Italic + Highlight
+        </button>
 
-        <button id="clearBtn" class="btn btn-danger">🗑️ Hapus Semua Italic</button>
+        <button id="clearBtn" class="btn btn-danger">
+          🧹 Hapus Highlight
+        </button>
       </section>
 
-      <!-- STATISTICS -->
+      <!-- ================= STATISTICS ================= -->
       <section class="section stats-section">
         <h3 class="section-title">📊 Statistik</h3>
+
         <div class="stat-grid">
           <div class="stat-item">
             <div class="stat-label">Kata Terdeteksi</div>
             <div class="stat-value" id="detectedCount">0</div>
           </div>
+
           <div class="stat-item">
             <div class="stat-label">Sudah Diformat</div>
             <div class="stat-value" id="formattedCount">0</div>
           </div>
+
           <div class="stat-item">
             <div class="stat-label">Waktu Proses</div>
             <div class="stat-value" id="processingTime">-</div>
@@ -77,20 +89,24 @@
         </div>
       </section>
 
-      <!-- RESULTS (WAJIB ADA) -->
-      <section id="resultsSection" class="section results-section" style="display: none">
+      <!-- ================= RESULTS ================= -->
+      <section
+        id="resultsSection"
+        class="section results-section"
+        style="display: none"
+      >
         <h3 class="section-title">✨ Istilah Terdeteksi</h3>
         <ul id="resultsList" class="results-list"></ul>
       </section>
 
-      <!-- STATUS -->
+      <!-- ================= STATUS ================= -->
       <section class="section">
         <div id="statusBox" class="status-box status-info">
           💡 Ketik teks di Word, lalu klik “Deteksi Kata Asing”.
         </div>
       </section>
 
-      <!-- HELP -->
+      <!-- ================= HELP ================= -->
       <section class="section help-section">
         <details>
           <summary>ℹ️ Cara Penggunaan</summary>
@@ -98,19 +114,26 @@
             <li>Pastikan backend API sedang berjalan.</li>
             <li>Tulis atau tempel teks ilmiah di Word.</li>
             <li>Klik <strong>Deteksi Kata Asing</strong>.</li>
-            <li>Klik <strong>Terapkan Italic</strong>.</li>
+            <li>Klik <strong>Terapkan Italic + Highlight</strong>.</li>
+            <li>
+              Jika perlu, klik <strong>Hapus Highlight</strong> tanpa
+              menghapus italic.
+            </li>
           </ol>
-          <p>Sistem akan menerapkan italic langsung ke dokumen tanpa mengubah isi teks.</p>
+          <p>
+            Sistem menerapkan italic sebagai format final, dan highlight
+            sebagai penanda visual hasil deteksi model.
+          </p>
         </details>
       </section>
 
-      <!-- FOOTER -->
+      <!-- ================= FOOTER ================= -->
       <footer class="footer">
         <p>© 2026 Italic Automation</p>
       </footer>
     </div>
 
-    <!-- JS -->
+    <!-- ================= JS ================= -->
     <script type="text/javascript" src="taskpane.js"></script>
   </body>
 </html>

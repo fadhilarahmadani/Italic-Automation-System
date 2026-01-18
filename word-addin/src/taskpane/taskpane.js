@@ -4,6 +4,8 @@ let API_URL = "http://localhost:8000";
 let detectedSpans = [];
 let formattedCount = 0;
 
+const HIGHLIGHT_COLOR = "#90EE90";
+
 Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
     const detectBtn = document.getElementById("detectBtn");
@@ -14,7 +16,6 @@ Office.onReady((info) => {
     if (formatBtn) formatBtn.onclick = applyItalic;
     if (clearBtn) clearBtn.onclick = clearItalic;
 
-    // Threshold slider update
     const thresholdSlider = document.getElementById("threshold");
     const thresholdValue = document.getElementById("thresholdValue");
     if (thresholdSlider && thresholdValue) {
@@ -22,19 +23,12 @@ Office.onReady((info) => {
         thresholdValue.textContent = parseFloat(this.value).toFixed(2);
       };
     }
-
-    // API URL update
-    const apiUrlInput = document.getElementById("apiUrl");
-    if (apiUrlInput) {
-      apiUrlInput.onchange = function () {
-        API_URL = this.value.trim();
-        updateStatus("API URL diubah ke: " + API_URL, "info");
-      };
-    }
   }
 });
 
-// Update status box
+/* =====================
+   STATUS & STATISTICS
+===================== */
 function updateStatus(message, type = "info") {
   const statusBox = document.getElementById("statusBox");
   if (statusBox) {
@@ -43,7 +37,6 @@ function updateStatus(message, type = "info") {
   }
 }
 
-// Update statistics
 function updateStats(detected = null, formatted = null, time = null) {
   if (detected !== null) {
     const el = document.getElementById("detectedCount");
@@ -59,6 +52,9 @@ function updateStats(detected = null, formatted = null, time = null) {
   }
 }
 
+/* =====================
+   DETECTION (TIDAK DIUBAH)
+===================== */
 async function detectItalic() {
   const startTime = performance.now();
   detectedSpans = [];
@@ -102,28 +98,30 @@ async function detectItalic() {
     updateStatus(`✅ Ditemukan ${detectedSpans.length} kata asing`, "success");
     showDetectedResults(detectedSpans);
   }).catch((error) => {
-    console.error("Error detecting:", error);
+    console.error(error);
     updateStatus("❌ Gagal mendeteksi: " + error.message, "error");
   });
 }
 
+/* =====================
+   APPLY ITALIC + HIGHLIGHT
+===================== */
 async function applyItalic() {
   const startTime = performance.now();
-  formattedCount = 0; // Reset counter
+  formattedCount = 0;
 
   if (detectedSpans.length === 0) {
-    updateStatus("⚠️ Tidak ada kata yang terdeteksi untuk di-italic", "warning");
+    updateStatus("⚠️ Tidak ada kata yang terdeteksi", "warning");
     return;
   }
 
-  updateStatus("✨ Menerapkan italic...", "info");
+  updateStatus("✨ Menerapkan italic & highlight...", "info");
 
   await Word.run(async (context) => {
     const paragraphs = context.document.body.paragraphs;
     paragraphs.load("items");
     await context.sync();
 
-    // Group by paragraph
     const spansByPara = {};
     detectedSpans.forEach((span) => {
       if (!spansByPara[span.paragraphIndex]) {
@@ -132,7 +130,6 @@ async function applyItalic() {
       spansByPara[span.paragraphIndex].push(span);
     });
 
-    // Process tiap paragraph
     for (const paraIndexStr in spansByPara) {
       const paraIndex = parseInt(paraIndexStr);
       const spans = spansByPara[paraIndexStr];
@@ -142,23 +139,17 @@ async function applyItalic() {
       await context.sync();
 
       const originalText = para.text;
-
-      // Track posisi untuk handle duplicate words
       const wordPositions = {};
 
       spans.forEach((span) => {
         const word = originalText.substring(span.start, span.end);
-        if (!wordPositions[word]) {
-          wordPositions[word] = [];
-        }
+        if (!wordPositions[word]) wordPositions[word] = [];
         wordPositions[word].push(span.start);
       });
 
-      // Process setiap unique word
       for (const word in wordPositions) {
         const positions = wordPositions[word];
 
-        // Search semua occurences
         const searchResults = para.search(word, {
           matchCase: true,
           matchWholeWord: false,
@@ -166,11 +157,6 @@ async function applyItalic() {
         searchResults.load("items");
         await context.sync();
 
-        // Untuk setiap search result, cek apakah posisinya match
-        let foundCount = 0;
-        let searchIndex = 0;
-
-        // Hitung posisi setiap occurrence di original text
         const allOccurrences = [];
         let searchStart = 0;
         while (true) {
@@ -180,67 +166,60 @@ async function applyItalic() {
           searchStart = idx + 1;
         }
 
-        // Apply italic hanya pada occurrence yang match dengan detected positions
         searchResults.items.forEach((result, idx) => {
           if (idx < allOccurrences.length) {
             const occurrencePos = allOccurrences[idx];
             if (positions.includes(occurrencePos)) {
               result.font.italic = true;
+              result.font.highlightColor = HIGHLIGHT_COLOR; // ✅ HIGHLIGHT
               formattedCount++;
             }
           }
         });
       }
-
-      await context.sync();
     }
 
     const endTime = performance.now();
     const processingTime = ((endTime - startTime) / 1000).toFixed(2) + "s";
 
     updateStats(detectedSpans.length, formattedCount, processingTime);
-    updateStatus(`✅ Berhasil menerapkan italic pada ${formattedCount} kata`, "success");
+    updateStatus(
+      `✅ Italic & highlight diterapkan pada ${formattedCount} kata`,
+      "success"
+    );
   }).catch((error) => {
-    console.error("Error applying italic:", error);
-    updateStatus("❌ Gagal menerapkan italic: " + error.message, "error");
+    console.error(error);
+    updateStatus("❌ Gagal menerapkan format: " + error.message, "error");
   });
 }
 
-// Clear all italic formatting
+/* =====================
+   CLEAR HIGHLIGHT ONLY
+===================== */
 async function clearItalic() {
-  updateStatus("🗑️ Menghapus semua italic...", "info");
+  updateStatus("🧹 Menghapus highlight...", "info");
 
   await Word.run(async (context) => {
-    const body = context.document.body;
-    body.load("text");
-    await context.sync();
-
-    // Get all content and remove italic
-    const paragraphs = body.paragraphs;
+    const paragraphs = context.document.body.paragraphs;
     paragraphs.load("items");
     await context.sync();
 
     paragraphs.items.forEach((para) => {
-      para.font.italic = false;
+      para.font.highlightColor = null;
     });
 
     await context.sync();
 
-    // Reset counters
-    detectedSpans = [];
-    formattedCount = 0;
-    updateStats(0, 0, "-");
-
-    const section = document.getElementById("resultsSection");
-    if (section) section.style.display = "none";
-
-    updateStatus("✅ Semua italic telah dihapus", "success");
+    updateStatus("✅ Highlight berhasil dihapus", "success");
   }).catch((error) => {
-    console.error("Error clearing italic:", error);
-    updateStatus("❌ Gagal menghapus italic: " + error.message, "error");
+    console.error(error);
+    updateStatus("❌ Gagal menghapus highlight: " + error.message, "error");
   });
 }
 
+/* =====================
+   UI RESULTS
+===================== */
 function showDetectedResults(spans) {
   const list = document.getElementById("resultsList");
   const section = document.getElementById("resultsSection");

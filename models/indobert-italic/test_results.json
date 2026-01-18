@@ -1,20 +1,20 @@
 {
-  "classification_report": "              precision    recall  f1-score   support\n\n           O     0.9945    0.9929    0.9937      1266\n           B     0.9698    0.9554    0.9625       269\n           I     0.9675    0.9868    0.9770       302\n\n    accuracy                         0.9864      1837\n   macro avg     0.9773    0.9783    0.9778      1837\nweighted avg     0.9864    0.9864    0.9864      1837\n",
+  "classification_report": "              precision    recall  f1-score   support\n\n           O     0.9952    0.9952    0.9952      1261\n           B     0.9740    0.9597    0.9668       273\n           I     0.9772    0.9901    0.9836       303\n\n    accuracy                         0.9891      1837\n   macro avg     0.9821    0.9817    0.9819      1837\nweighted avg     0.9891    0.9891    0.9891      1837\n",
   "confusion_matrix": [
     [
-      1257,
-      5,
-      4
+      1255,
+      4,
+      2
     ],
     [
       6,
-      257,
-      6
+      262,
+      5
     ],
     [
-      1,
+      0,
       3,
-      298
+      300
     ]
   ],
   "test_samples": 159
