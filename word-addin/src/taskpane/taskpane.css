@@ -267,24 +267,39 @@ body.ms-welcome {
 
 .result-item {
   background: #f8f9fa;
-  padding: 12px;
-  margin-bottom: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
   border-left: 4px solid #667eea;
   border-radius: 6px;
-  transition: transform 0.2s;
+  transition: all 0.2s;
 }
 
 .result-item:hover {
-  transform: translateX(4px);
   background: #f0f1f3;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.result-item-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-word-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .result-word {
   font-weight: 700;
   font-style: italic;
   color: #667eea;
-  font-size: 15px;
-  margin-bottom: 4px;
+  font-size: 14px;
+  word-break: break-word;
 }
 
 .result-confidence {
@@ -301,7 +316,40 @@ body.ms-welcome {
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: 600;
+  font-size: 11px;
+  white-space: nowrap;
 }
+
+/* Remove Button */
+.remove-btn {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border: none;
+  background: #fee2e2;
+  color: #dc2626;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0.7;
+}
+
+.remove-btn:hover {
+  background: #dc2626;
+  color: white;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.remove-btn:active {
+  transform: scale(0.95);
+}
+
 
 /* ===========================
    STATUS BOX
