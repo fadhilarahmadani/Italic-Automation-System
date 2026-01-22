@@ -8,12 +8,16 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 import config
+from utils import setup_logging
+
+# Setup logging
+logger = setup_logging(__name__)
 
 
 class ItalicDetectionService:
     """
-    Service untuk deteksi italic menggunakan IndoBERT
-    Output berbasis character offset (aman untuk Microsoft Word)
+    Service for italic detection using IndoBERT
+    Output based on character offset (safe for Microsoft Word)
     """
 
     def __init__(self, model_path: str = None):
@@ -30,7 +34,7 @@ class ItalicDetectionService:
 
     def _load_model(self):
         try:
-            print(f"📂 Loading model from {self.model_path}")
+            logger.info(f"Loading model from {self.model_path}")
 
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             self.model = AutoModelForTokenClassification.from_pretrained(self.model_path)
@@ -40,10 +44,10 @@ class ItalicDetectionService:
             self.model.to(self.device)
 
             self.is_loaded = True
-            print(f"✅ Model loaded successfully on {self.device}")
+            logger.info(f"Model loaded successfully on {self.device}")
 
         except Exception as e:
-            print(f"❌ Failed to load model: {e}")
+            logger.error(f"Failed to load model: {e}")
             raise
 
     def predict_tokens(
@@ -51,11 +55,11 @@ class ItalicDetectionService:
         text: str
     ) -> Tuple[List[Dict], float]:
         """
-        Token-level prediction dengan offset mapping tokenizer
+        Token-level prediction with offset mapping tokenizer
 
         Returns:
-            predictions: list token dengan label, confidence, char offset
-            processing_time
+            predictions: list of tokens with label, confidence, char offset
+            processing_time: time taken for prediction
         """
         start_time = time.time()
 
@@ -106,8 +110,8 @@ class ItalicDetectionService:
         confidence_threshold: float = 0.8
     ) -> Tuple[List[Dict], float]:
         """
-        Gabungkan token B/I menjadi span italic
-        Confidence diterapkan di LEVEL SPAN (bukan token)
+        Combine B/I tokens into italic spans
+        Confidence is applied at SPAN LEVEL (not token level)
         """
 
         token_preds, processing_time = self.predict_tokens(text)

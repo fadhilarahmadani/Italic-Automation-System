@@ -2,9 +2,15 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 import time
 import sys
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -20,6 +26,33 @@ from api.models import (
     ErrorResponse
 )
 from api.predictor import get_predictor_service
+from utils import setup_logging
+
+# Setup logging
+logger = setup_logging(__name__, os.getenv("LOG_LEVEL", "INFO"))
+
+# Load predictor on startup/shutdown
+predictor = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events"""
+    global predictor
+    # Startup
+    logger.info("="*60)
+    logger.info("Starting Italic Automation API")
+    logger.info("="*60)
+    try:
+        predictor = get_predictor_service()
+        logger.info("API ready to serve requests")
+    except Exception as e:
+        logger.error(f"Failed to start API: {e}")
+        raise
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down API")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -27,34 +60,21 @@ app = FastAPI(
     description="IndoBERT-based automatic italic detection for Indonesian text (PUEBI compliant)",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
+
+# Get CORS origins from environment variable
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,https://localhost:3000").split(",")
 
 # CORS middleware - Allow Word Add-in to access API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Load predictor on startup
-predictor = None
-
-@app.on_event("startup")
-async def startup_event():
-    """Load model when API starts"""
-    global predictor
-    print("="*60)
-    print("🚀 Starting Italic Automation API")
-    print("="*60)
-    try:
-        predictor = get_predictor_service()
-        print("✅ API ready to serve requests")
-    except Exception as e:
-        print(f"❌ Failed to start API: {e}")
-        raise
 
 
 @app.get("/", tags=["Root"])
@@ -239,8 +259,8 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        host=os.getenv("API_HOST", "0.0.0.0"),
+        port=int(os.getenv("API_PORT", "8000")),
+        reload=os.getenv("API_RELOAD", "true").lower() == "true",
+        log_level=os.getenv("LOG_LEVEL", "info").lower()
     )

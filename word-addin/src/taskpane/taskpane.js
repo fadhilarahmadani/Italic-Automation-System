@@ -1,6 +1,7 @@
 /* global document, Office, Word */
 
-let API_URL = "http://localhost:8000";
+// API URL from environment variable (injected by webpack)
+let API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 let detectedSpans = [];
 let formattedCount = 0;
 

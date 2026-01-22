@@ -30,7 +30,7 @@ logs/
 word-addin/node_modules/
 word-addin/dist/
 word-addin/.vscode/
-*.lock
+yarn.lock
 
 # IDE
 .vscode/
@@ -52,6 +52,7 @@ tmp/
 # Environment
 .env
 *.env.local
+!.env.example
 
 # Office cache
 *.webview-cache/
