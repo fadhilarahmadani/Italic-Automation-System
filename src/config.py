@@ -31,5 +31,3 @@ METRIC_FOR_BEST_MODEL = "f1"
 LOGGING_STEPS = 50
 SAVE_STEPS = 100
 EVAL_STEPS = 100
-
-print(" Configuration loaded")
