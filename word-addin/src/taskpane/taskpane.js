@@ -7,8 +7,25 @@ let formattedCount = 0;
 
 const HIGHLIGHT_COLOR = "#90EE90";
 
+// Global error handler untuk mencegah uncaught errors
+window.addEventListener('error', function(event) {
+  console.error('Global Error:', event.error);
+  updateStatus('❌ Error: ' + (event.error?.message || 'Terjadi kesalahan'), 'error');
+  event.preventDefault();
+});
+
+// Global unhandled rejection handler
+window.addEventListener('unhandledrejection', function(event) {
+  console.error('Unhandled Promise Rejection:', event.reason);
+  updateStatus('❌ Error: ' + (event.reason?.message || 'Koneksi gagal. Pastikan API berjalan.'), 'error');
+  event.preventDefault();
+});
+
 Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
+    // Check API connection on startup
+    checkApiConnection();
+    
     const detectBtn = document.getElementById("detectBtn");
     const formatBtn = document.getElementById("formatBtn");
     const clearBtn = document.getElementById("clearBtn");
@@ -28,13 +45,51 @@ Office.onReady((info) => {
 });
 
 /* =====================
+   API CONNECTION CHECK
+===================== */
+async function checkApiConnection() {
+  try {
+    updateStatus("🔄 Memeriksa koneksi API...", "info");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(API_URL + "/health", {
+      method: "GET",
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      updateStatus("✅ API terhubung dan siap", "success");
+      return true;
+    } else {
+      updateStatus("⚠️ API tidak merespons dengan benar", "warning");
+      return false;
+    }
+  } catch (error) {
+    console.error("API connection check failed:", error);
+    if (error.name === 'AbortError') {
+      updateStatus("❌ API tidak dapat dijangkau (timeout). Pastikan server berjalan di " + API_URL, "error");
+    } else {
+      updateStatus("❌ Tidak dapat terhubung ke API. Pastikan server berjalan di " + API_URL, "error");
+    }
+    return false;
+  }
+}
+
+/* =====================
    STATUS & STATISTICS
 ===================== */
 function updateStatus(message, type = "info") {
-  const statusBox = document.getElementById("statusBox");
-  if (statusBox) {
-    statusBox.textContent = message;
-    statusBox.className = `status-box status-${type}`;
+  try {
+    const statusBox = document.getElementById("statusBox");
+    if (statusBox) {
+      statusBox.textContent = message;
+      statusBox.className = `status-box status-${type}`;
+    }
+  } catch (error) {
+    console.error("Error updating status:", error);
   }
 }
 
@@ -57,47 +112,54 @@ function updateStats(detected = null, formatted = null, time = null) {
    DETECTION (WITH DEDUPLICATION)
 ===================== */
 async function detectItalic() {
-  const startTime = performance.now();
-  detectedSpans = [];
-  uniqueWords = [];
-  updateStatus("🔍 Mendeteksi kata asing...", "info");
+  try {
+    const startTime = performance.now();
+    detectedSpans = [];
+    uniqueWords = [];
+    updateStatus("🔍 Mendeteksi kata asing...", "info");
 
-  await Word.run(async (context) => {
-    const paragraphs = context.document.body.paragraphs;
-    paragraphs.load("items/text");
-    await context.sync();
+    await Word.run(async (context) => {
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("items/text");
+      await context.sync();
 
-    const texts = paragraphs.items.map((p) => p.text);
-    const threshold = parseFloat(document.getElementById("threshold").value);
+      const texts = paragraphs.items.map((p) => p.text);
+      const threshold = parseFloat(document.getElementById("threshold").value);
 
-    // Batching: API maksimal 100 paragraphs per request
-    const BATCH_SIZE = 100;
-    const totalBatches = Math.ceil(texts.length / BATCH_SIZE);
-    
-    console.log(`Total paragraphs: ${texts.length}, batches: ${totalBatches}`);
+      // Batching: API maksimal 100 paragraphs per request
+      const BATCH_SIZE = 100;
+      const totalBatches = Math.ceil(texts.length / BATCH_SIZE);
+      
+      console.log(`Total paragraphs: ${texts.length}, batches: ${totalBatches}`);
 
-    // Process batches
-    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-      const start = batchIndex * BATCH_SIZE;
-      const end = Math.min(start + BATCH_SIZE, texts.length);
-      const batchTexts = texts.slice(start, end);
+      // Process batches
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const start = batchIndex * BATCH_SIZE;
+        const end = Math.min(start + BATCH_SIZE, texts.length);
+        const batchTexts = texts.slice(start, end);
 
-      updateStatus(
-        `🔍 Mendeteksi kata asing... (batch ${batchIndex + 1}/${totalBatches})`,
-        "info"
-      );
+        updateStatus(
+          `🔍 Mendeteksi kata asing... (batch ${batchIndex + 1}/${totalBatches})`,
+          "info"
+        );
 
-      const res = await fetch(API_URL + "/api/batch-detect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paragraphs: batchTexts,
-          confidence_threshold: threshold,
-        }),
-      });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      // Cek status HTTP
-      if (!res.ok) {
+        const res = await fetch(API_URL + "/api/batch-detect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paragraphs: batchTexts,
+            confidence_threshold: threshold,
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        // Cek status HTTP
+        if (!res.ok) {
         const errorText = await res.text();
         console.error("API Error Response:", errorText);
         throw new Error(`API error (${res.status}): ${errorText}`);
@@ -169,124 +231,142 @@ async function detectItalic() {
       "success"
     );
     showDetectedResults(uniqueWords);
-  }).catch((error) => {
-    console.error(error);
-    updateStatus("❌ Gagal mendeteksi: " + error.message, "error");
-  });
+    }).catch((error) => {
+      console.error("Word.run error:", error);
+      if (error.name === 'AbortError') {
+        updateStatus("❌ Request timeout. Server mungkin terlalu lambat atau tidak merespons.", "error");
+      } else {
+        updateStatus("❌ Gagal mendeteksi: " + error.message, "error");
+      }
+    });
+  } catch (error) {
+    console.error("Detect error:", error);
+    updateStatus("❌ Error: " + (error.message || "Terjadi kesalahan"), "error");
+  }
 }
 
 /* =====================
    APPLY ITALIC + HIGHLIGHT
 ===================== */
 async function applyItalic() {
-  const startTime = performance.now();
-  formattedCount = 0;
+  try {
+    const startTime = performance.now();
+    formattedCount = 0;
 
-  if (detectedSpans.length === 0) {
-    updateStatus("⚠️ Tidak ada kata yang terdeteksi", "warning");
-    return;
-  }
-
-  updateStatus("✨ Menerapkan italic & highlight...", "info");
-
-  await Word.run(async (context) => {
-    const paragraphs = context.document.body.paragraphs;
-    paragraphs.load("items");
-    await context.sync();
-
-    const spansByPara = {};
-    detectedSpans.forEach((span) => {
-      if (!spansByPara[span.paragraphIndex]) {
-        spansByPara[span.paragraphIndex] = [];
-      }
-      spansByPara[span.paragraphIndex].push(span);
-    });
-
-    for (const paraIndexStr in spansByPara) {
-      const paraIndex = parseInt(paraIndexStr);
-      const spans = spansByPara[paraIndexStr];
-      const para = paragraphs.items[paraIndex];
-
-      para.load("text");
-      await context.sync();
-
-      const originalText = para.text;
-      const wordPositions = {};
-
-      spans.forEach((span) => {
-        const word = originalText.substring(span.start, span.end);
-        if (!wordPositions[word]) wordPositions[word] = [];
-        wordPositions[word].push(span.start);
-      });
-
-      for (const word in wordPositions) {
-        const positions = wordPositions[word];
-
-        const searchResults = para.search(word, {
-          matchCase: true,
-          matchWholeWord: false,
-        });
-        searchResults.load("items");
-        await context.sync();
-
-        const allOccurrences = [];
-        let searchStart = 0;
-        while (true) {
-          const idx = originalText.indexOf(word, searchStart);
-          if (idx === -1) break;
-          allOccurrences.push(idx);
-          searchStart = idx + 1;
-        }
-
-        searchResults.items.forEach((result, idx) => {
-          if (idx < allOccurrences.length) {
-            const occurrencePos = allOccurrences[idx];
-            if (positions.includes(occurrencePos)) {
-              result.font.italic = true;
-              result.font.highlightColor = HIGHLIGHT_COLOR; // ✅ HIGHLIGHT
-              formattedCount++;
-            }
-          }
-        });
-      }
+    if (detectedSpans.length === 0) {
+      updateStatus("⚠️ Tidak ada kata yang terdeteksi", "warning");
+      return;
     }
 
-    const endTime = performance.now();
-    const processingTime = ((endTime - startTime) / 1000).toFixed(2) + "s";
+    updateStatus("✨ Menerapkan italic & highlight...", "info");
 
-    updateStats(detectedSpans.length, formattedCount, processingTime);
-    updateStatus(
-      `✅ Italic & highlight diterapkan pada ${formattedCount} kata`,
-      "success"
-    );
-  }).catch((error) => {
-    console.error(error);
-    updateStatus("❌ Gagal menerapkan format: " + error.message, "error");
-  });
+    await Word.run(async (context) => {
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("items");
+      await context.sync();
+
+      const spansByPara = {};
+      detectedSpans.forEach((span) => {
+        if (!spansByPara[span.paragraphIndex]) {
+          spansByPara[span.paragraphIndex] = [];
+        }
+        spansByPara[span.paragraphIndex].push(span);
+      });
+
+      for (const paraIndexStr in spansByPara) {
+        const paraIndex = parseInt(paraIndexStr);
+        const spans = spansByPara[paraIndexStr];
+        const para = paragraphs.items[paraIndex];
+
+        para.load("text");
+        await context.sync();
+
+        const originalText = para.text;
+        const wordPositions = {};
+
+        spans.forEach((span) => {
+          const word = originalText.substring(span.start, span.end);
+          if (!wordPositions[word]) wordPositions[word] = [];
+          wordPositions[word].push(span.start);
+        });
+
+        for (const word in wordPositions) {
+          const positions = wordPositions[word];
+
+          const searchResults = para.search(word, {
+            matchCase: true,
+            matchWholeWord: false,
+          });
+          searchResults.load("items");
+          await context.sync();
+
+          const allOccurrences = [];
+          let searchStart = 0;
+          while (true) {
+            const idx = originalText.indexOf(word, searchStart);
+            if (idx === -1) break;
+            allOccurrences.push(idx);
+            searchStart = idx + 1;
+          }
+
+          searchResults.items.forEach((result, idx) => {
+            if (idx < allOccurrences.length) {
+              const occurrencePos = allOccurrences[idx];
+              if (positions.includes(occurrencePos)) {
+                result.font.italic = true;
+                result.font.highlightColor = HIGHLIGHT_COLOR; // ✅ HIGHLIGHT
+                formattedCount++;
+              }
+            }
+          });
+        }
+      }
+
+      const endTime = performance.now();
+      const processingTime = ((endTime - startTime) / 1000).toFixed(2) + "s";
+
+      updateStats(detectedSpans.length, formattedCount, processingTime);
+      updateStatus(
+        `✅ Italic & highlight diterapkan pada ${formattedCount} kata`,
+        "success"
+      );
+    }).catch((error) => {
+      console.error("Word.run error:", error);
+      updateStatus("❌ Gagal menerapkan format: " + error.message, "error");
+    });
+  } catch (error) {
+    console.error("Apply italic error:", error);
+    updateStatus("❌ Error: " + (error.message || "Terjadi kesalahan"), "error");
+  }
 }
 
 /* =====================
    CLEAR HIGHLIGHT ONLY
 ===================== */
 async function clearItalic() {
-  updateStatus("🧹 Menghapus highlight...", "info");
+  try {
+    updateStatus("🧹 Menghapus highlight...", "info");
 
-  await Word.run(async (context) => {
-    const paragraphs = context.document.body.paragraphs;
-    paragraphs.load("items");
-    await context.sync();
+    await Word.run(async (context) => {
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("items");
+      await context.sync();
 
-    paragraphs.items.forEach((para) => {
-      para.font.highlightColor = null;
+      paragraphs.items.forEach((para) => {
+        para.font.highlightColor = null;
+      });
+
+      await context.sync();
+
+      updateStatus("✅ Highlight berhasil dihapus", "success");
+    }).catch((error) => {
+      console.error("Word.run error:", error);
+      updateStatus("❌ Gagal menghapus highlight: " + error.message, "error");
     });
-
-    await context.sync();
-
-    updateStatus("✅ Highlight berhasil dihapus", "success");
-  }).catch((error) => {
-    console.error(error);
-    updateStatus("❌ Gagal menghapus highlight: " + error.message, "error");
-  });
+  } catch (error) {
+    console.error("Clear highlight error:", error);
+    updateStatus("❌ Error: " + (error.message || "Terjadi kesalahan"), "error");
+  }
 }
 
 /* =====================
