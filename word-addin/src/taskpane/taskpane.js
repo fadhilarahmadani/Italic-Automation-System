@@ -1,7 +1,8 @@
 /* global document, Office, Word */
 
 let API_URL = "http://localhost:8000";
-let detectedSpans = [];
+let detectedSpans = [];      // Semua span (untuk apply italic)
+let uniqueWords = [];        // Kata unik (untuk tampilan UI)
 let formattedCount = 0;
 
 const HIGHLIGHT_COLOR = "#90EE90";
@@ -53,11 +54,12 @@ function updateStats(detected = null, formatted = null, time = null) {
 }
 
 /* =====================
-   DETECTION (TIDAK DIUBAH)
+   DETECTION (WITH DEDUPLICATION)
 ===================== */
 async function detectItalic() {
   const startTime = performance.now();
   detectedSpans = [];
+  uniqueWords = [];
   updateStatus("🔍 Mendeteksi kata asing...", "info");
 
   await Word.run(async (context) => {
@@ -68,35 +70,105 @@ async function detectItalic() {
     const texts = paragraphs.items.map((p) => p.text);
     const threshold = parseFloat(document.getElementById("threshold").value);
 
-    const res = await fetch(API_URL + "/api/batch-detect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        paragraphs: texts,
-        confidence_threshold: threshold,
-      }),
-    });
+    // Batching: API maksimal 100 paragraphs per request
+    const BATCH_SIZE = 100;
+    const totalBatches = Math.ceil(texts.length / BATCH_SIZE);
+    
+    console.log(`Total paragraphs: ${texts.length}, batches: ${totalBatches}`);
 
-    const data = await res.json();
+    // Process batches
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const start = batchIndex * BATCH_SIZE;
+      const end = Math.min(start + BATCH_SIZE, texts.length);
+      const batchTexts = texts.slice(start, end);
 
-    data.results.forEach((para) => {
-      para.italic_words.forEach((w) => {
-        detectedSpans.push({
-          paragraphIndex: para.paragraph_index,
-          start: w.start_pos,
-          end: w.end_pos,
-          word: w.word,
-          confidence: w.confidence,
-        });
+      updateStatus(
+        `🔍 Mendeteksi kata asing... (batch ${batchIndex + 1}/${totalBatches})`,
+        "info"
+      );
+
+      const res = await fetch(API_URL + "/api/batch-detect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paragraphs: batchTexts,
+          confidence_threshold: threshold,
+        }),
       });
+
+      // Cek status HTTP
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("API Error Response:", errorText);
+        throw new Error(`API error (${res.status}): ${errorText}`);
+      }
+
+      const data = await res.json();
+      console.log(`Batch ${batchIndex + 1} Response:`, data);
+
+      // Validasi struktur data dengan lebih detail
+      if (!data || !data.success) {
+        console.error("API Response:", data);
+        throw new Error("API mengembalikan status tidak berhasil");
+      }
+
+      if (!data.results || !Array.isArray(data.results)) {
+        console.error("Invalid data structure:", data);
+        throw new Error("Format respons API tidak valid - results tidak ditemukan");
+      }
+
+      // Adjust paragraph index untuk batch
+      data.results.forEach((para) => {
+        if (para.italic_words && Array.isArray(para.italic_words)) {
+          para.italic_words.forEach((w) => {
+            detectedSpans.push({
+              paragraphIndex: start + para.paragraph_index, // Offset untuk batch
+              start: w.start_pos,
+              end: w.end_pos,
+              word: w.word,
+              confidence: w.confidence,
+            });
+          });
+        }
+      });
+    }
+
+    // Deduplicate: Kelompokkan kata unik dengan confidence tertinggi dan hitung jumlah kemunculan
+    const wordMap = new Map();
+    detectedSpans.forEach((span) => {
+      const wordLower = span.word.toLowerCase();
+      if (!wordMap.has(wordLower)) {
+        wordMap.set(wordLower, {
+          word: span.word,
+          confidence: span.confidence,
+          count: 1,
+        });
+      } else {
+        const existing = wordMap.get(wordLower);
+        existing.count++;
+        // Simpan confidence tertinggi
+        if (span.confidence > existing.confidence) {
+          existing.confidence = span.confidence;
+          existing.word = span.word; // Simpan case asli dengan confidence tertinggi
+        }
+      }
     });
+
+    // Convert Map ke array untuk UI
+    uniqueWords = Array.from(wordMap.values());
+    
+    // Sort by confidence descending
+    uniqueWords.sort((a, b) => b.confidence - a.confidence);
 
     const endTime = performance.now();
     const processingTime = ((endTime - startTime) / 1000).toFixed(2) + "s";
 
     updateStats(detectedSpans.length, formattedCount, processingTime);
-    updateStatus(`✅ Ditemukan ${detectedSpans.length} kata asing`, "success");
-    showDetectedResults(detectedSpans);
+    updateStatus(
+      `✅ Ditemukan ${uniqueWords.length} kata unik (${detectedSpans.length} total kemunculan)`,
+      "success"
+    );
+    showDetectedResults(uniqueWords);
   }).catch((error) => {
     console.error(error);
     updateStatus("❌ Gagal mendeteksi: " + error.message, "error");
@@ -218,23 +290,86 @@ async function clearItalic() {
 }
 
 /* =====================
-   UI RESULTS
+   UI RESULTS (WITH DEDUPLICATION)
 ===================== */
-function showDetectedResults(spans) {
+function showDetectedResults(words) {
   const list = document.getElementById("resultsList");
   const section = document.getElementById("resultsSection");
 
   list.innerHTML = "";
-  if (spans.length === 0) {
+  if (words.length === 0) {
     section.style.display = "none";
     return;
   }
 
-  spans.forEach((s) => {
+  words.forEach((item, index) => {
     const li = document.createElement("li");
-    li.textContent = `${s.word} (${(s.confidence * 100).toFixed(1)}%)`;
+    li.className = "result-item";
+    li.setAttribute("data-index", index);
+
+    // Container untuk word dan tombol hapus
+    const itemContent = document.createElement("div");
+    itemContent.className = "result-item-content";
+
+    // Word dan confidence
+    const wordInfo = document.createElement("div");
+    wordInfo.className = "result-word-info";
+
+    const wordSpan = document.createElement("span");
+    wordSpan.className = "result-word";
+    // Tampilkan kata dengan jumlah kemunculan jika lebih dari 1
+    wordSpan.textContent = item.count > 1 ? `${item.word} (×${item.count})` : item.word;
+
+    const confidenceSpan = document.createElement("span");
+    confidenceSpan.className = "confidence-badge";
+    confidenceSpan.textContent = `${(item.confidence * 100).toFixed(1)}%`;
+
+    wordInfo.appendChild(wordSpan);
+    wordInfo.appendChild(confidenceSpan);
+
+    // Tombol hapus (x)
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "remove-btn";
+    removeBtn.innerHTML = "✕";
+    removeBtn.title = "Hapus kata ini dari daftar";
+    removeBtn.onclick = function (e) {
+      e.stopPropagation();
+      removeDetectedWord(index);
+    };
+
+    itemContent.appendChild(wordInfo);
+    itemContent.appendChild(removeBtn);
+    li.appendChild(itemContent);
     list.appendChild(li);
   });
 
   section.style.display = "block";
+}
+
+/* =====================
+   REMOVE DETECTED WORD (WITH DEDUPLICATION)
+===================== */
+function removeDetectedWord(index) {
+  if (index >= 0 && index < uniqueWords.length) {
+    const removedWord = uniqueWords[index].word;
+    const removedWordLower = removedWord.toLowerCase();
+    
+    // Hapus dari uniqueWords
+    uniqueWords.splice(index, 1);
+    
+    // Hapus SEMUA kemunculan kata ini dari detectedSpans
+    detectedSpans = detectedSpans.filter(
+      (span) => span.word.toLowerCase() !== removedWordLower
+    );
+
+    // Update UI
+    updateStats(detectedSpans.length, formattedCount, null);
+    showDetectedResults(uniqueWords);
+
+    // Update status
+    updateStatus(
+      `🗑️ "${removedWord}" dihapus. Tersisa ${uniqueWords.length} kata unik (${detectedSpans.length} kemunculan).`,
+      "info"
+    );
+  }
 }
