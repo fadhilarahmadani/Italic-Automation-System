@@ -1,8 +1,8 @@
 # src/error_analysis.py
 """
-Error analysis and failure case documentation for italic detection
+Analisis kesalahan dan dokumentasi kasus kegagalan untuk deteksi italic
 
-This module helps identify patterns in model errors to guide improvements.
+Modul ini membantu mengidentifikasi pola kesalahan model untuk memandu perbaikan.
 """
 import json
 from typing import List, Dict, Tuple
