@@ -1,0 +1,89 @@
+================================================================================
+DATASET STATISTICS REPORT
+Italic Detection Dataset
+================================================================================
+
+BASIC STATISTICS
+--------------------------------------------------------------------------------
+Total Samples:          742
+Total Tokens:           8,852
+Total Italic Phrases:   1,353
+Avg Tokens/Sample:      11.93
+Avg Italic/Sample:      1.82
+
+LABEL DISTRIBUTION
+--------------------------------------------------------------------------------
+O (Non-italic):  6,016 (67.96%)
+B (Begin):       1,353 (15.28%)
+I (Inside):      1,483 (16.75%)
+
+SENTENCE LENGTH STATISTICS
+--------------------------------------------------------------------------------
+Minimum:   5
+Maximum:   24
+Mean:      11.93
+Median:    11
+
+ITALIC PHRASE ANALYSIS
+--------------------------------------------------------------------------------
+Unique Phrases:         443
+Total Occurrences:      1,353
+Avg Repetition:         3.05
+
+PATTERN STATISTICS
+--------------------------------------------------------------------------------
+Contains Hyphen:     136 (10.1%)
+Contains Underscore: 0 (0.0%)
+Contains Numbers:    4 (0.3%)
+All Caps:            13 (1.0%)
+Title Case:          91 (6.7%)
+Likely English:      658 (48.6%)
+
+MOST COMMON ITALIC PHRASES (Top 20)
+--------------------------------------------------------------------------------
+ 1. convolutional neural network                          20
+ 2. natural language processing                           17
+ 3. pattern recognition                                   15
+ 4. machine learning                                      13
+ 5. attention mechanism                                   13
+ 6. front-end                                             11
+ 7. statistical analysis                                  11
+ 8. Long Short-Term Memory                                11
+ 9. pipeline                                              11
+10. artificial intelligence                               10
+11. unit testing                                          10
+12. ensemble learning                                     10
+13. clustering                                             9
+14. text mining                                            9
+15. bayesian optimization                                  9
+16. real-time inference                                    9
+17. computer vision                                        9
+18. feature extraction                                     9
+19. snowflake schema                                       9
+20. load balancing                                         9
+
+MOST COMMON CONTEXT WORDS
+--------------------------------------------------------------------------------
+Words appearing BEFORE italic phrases:
+  dan                    137
+  memanfaatkan           121
+  dengan                 104
+  melalui                 63
+  menerapkan              53
+  menggunakan             48
+  mendukung               37
+  saat                    32
+  melakukan               25
+  menambahkan             23
+
+Words appearing AFTER italic phrases:
+  dan                    149
+  untuk                  126
+  pada                    93
+  diterapkan              49
+  yang                    35
+  sementara               32
+  kemudian                30
+  digunakan               21
+  dalam                   21
+  agar                    21
