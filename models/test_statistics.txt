@@ -1,0 +1,89 @@
+================================================================================
+DATASET STATISTICS REPORT
+Italic Detection Dataset
+================================================================================
+
+BASIC STATISTICS
+--------------------------------------------------------------------------------
+Total Samples:          159
+Total Tokens:           1,837
+Total Italic Phrases:   273
+Avg Tokens/Sample:      11.55
+Avg Italic/Sample:      1.72
+
+LABEL DISTRIBUTION
+--------------------------------------------------------------------------------
+O (Non-italic):  1,261 (68.64%)
+B (Begin):       273 (14.86%)
+I (Inside):      303 (16.49%)
+
+SENTENCE LENGTH STATISTICS
+--------------------------------------------------------------------------------
+Minimum:   6
+Maximum:   21
+Mean:      11.55
+Median:    11
+
+ITALIC PHRASE ANALYSIS
+--------------------------------------------------------------------------------
+Unique Phrases:         174
+Total Occurrences:      273
+Avg Repetition:         1.57
+
+PATTERN STATISTICS
+--------------------------------------------------------------------------------
+Contains Hyphen:     19 (7.0%)
+Contains Underscore: 0 (0.0%)
+Contains Numbers:    1 (0.4%)
+All Caps:            1 (0.4%)
+Title Case:          17 (6.2%)
+Likely English:      125 (45.8%)
+
+MOST COMMON ITALIC PHRASES (Top 20)
+--------------------------------------------------------------------------------
+ 1. natural language processing                            5
+ 2. Pipeline                                               4
+ 3. cross-validation                                       4
+ 4. version control                                        4
+ 5. pattern recognition                                    4
+ 6. anomaly detection                                      4
+ 7. Web Crawling                                           3
+ 8. face recognition                                       3
+ 9. overfitting                                            3
+10. zero trust architecture                                3
+11. snowflake schema                                       3
+12. transaction isolation level                            3
+13. code review                                            3
+14. transformer architecture                               3
+15. attention mechanism                                    3
+16. data visualization                                     3
+17. security monitoring                                    3
+18. question answering                                     3
+19. optical character recognition                          3
+20. microservices architecture                             3
+
+MOST COMMON CONTEXT WORDS
+--------------------------------------------------------------------------------
+Words appearing BEFORE italic phrases:
+  dengan                  36
+  dan                     23
+  memanfaatkan            22
+  menggunakan             11
+  melakukan                9
+  menerapkan               8
+  melalui                  8
+  mengandalkan             7
+  mendukung                7
+  sebelum                  7
+
+Words appearing AFTER italic phrases:
+  dan                     26
+  untuk                   23
+  pada                    22
+  diterapkan              15
+  sementara                9
+  kemudian                 8
+  agar                     7
+  digabung                 6
+  analitik                 4
+  sehingga                 4

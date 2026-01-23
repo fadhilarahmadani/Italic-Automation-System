@@ -1,0 +1,89 @@
+================================================================================
+DATASET STATISTICS REPORT
+Italic Detection Dataset
+================================================================================
+
+BASIC STATISTICS
+--------------------------------------------------------------------------------
+Total Samples:          1,060
+Total Tokens:           12,535
+Total Italic Phrases:   1,914
+Avg Tokens/Sample:      11.83
+Avg Italic/Sample:      1.81
+
+LABEL DISTRIBUTION
+--------------------------------------------------------------------------------
+O (Non-italic):  8,536 (68.10%)
+B (Begin):       1,914 (15.27%)
+I (Inside):      2,085 (16.63%)
+
+SENTENCE LENGTH STATISTICS
+--------------------------------------------------------------------------------
+Minimum:   5
+Maximum:   24
+Mean:      11.83
+Median:    11
+
+ITALIC PHRASE ANALYSIS
+--------------------------------------------------------------------------------
+Unique Phrases:         525
+Total Occurrences:      1,914
+Avg Repetition:         3.65
+
+PATTERN STATISTICS
+--------------------------------------------------------------------------------
+Contains Hyphen:     183 (9.6%)
+Contains Underscore: 0 (0.0%)
+Contains Numbers:    5 (0.3%)
+All Caps:            21 (1.1%)
+Title Case:          123 (6.4%)
+Likely English:      917 (47.9%)
+
+MOST COMMON ITALIC PHRASES (Top 20)
+--------------------------------------------------------------------------------
+ 1. convolutional neural network                          28
+ 2. natural language processing                           23
+ 3. pattern recognition                                   22
+ 4. machine learning                                      19
+ 5. transformer architecture                              19
+ 6. attention mechanism                                   18
+ 7. pipeline                                              16
+ 8. snowflake schema                                      15
+ 9. feature extraction                                    14
+10. load balancing                                        14
+11. version control                                       14
+12. microservices architecture                            14
+13. object detection                                      14
+14. cross-validation                                      13
+15. computer vision                                       13
+16. statistical analysis                                  13
+17. front-end                                             12
+18. Pipeline                                              12
+19. bayesian optimization                                 12
+20. hyperparameter tuning                                 12
+
+MOST COMMON CONTEXT WORDS
+--------------------------------------------------------------------------------
+Words appearing BEFORE italic phrases:
+  dan                    190
+  memanfaatkan           171
+  dengan                 165
+  melalui                 83
+  menerapkan              75
+  menggunakan             67
+  mendukung               54
+  melakukan               40
+  saat                    38
+  sebelum                 33
+
+Words appearing AFTER italic phrases:
+  dan                    208
+  untuk                  170
+  pada                   137
+  diterapkan              74
+  sementara               48
+  kemudian                42
+  yang                    41
+  agar                    32
+  secara                  28
+  digunakan               28
