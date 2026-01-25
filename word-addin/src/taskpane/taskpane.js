@@ -79,114 +79,6 @@ async function checkApiConnection() {
 }
 
 /* =====================
-   KBBI VERIFICATION (DUAL VERIFICATION)
-===================== */
-const KBBI_API_URLS = [
-  "https://kbbi-api.vercel.app/api/cari/",
-  "https://new-kbbi-api.herokuapp.com/cari/"
-];
-let currentKBBIApiIndex = 0;
-
-/**
- * Verify if word exists in KBBI (Indonesian Dictionary)
- * Returns true if word is NOT in KBBI (meaning it's truly foreign)
- * Returns false if word IS in KBBI (meaning it's Indonesian, false positive)
- */
-async function verifyWithKBBI(word) {
-  try {
-    const cleanWord = word.toLowerCase().trim();
-
-    // Try current API endpoint
-    const apiUrl = KBBI_API_URLS[currentKBBIApiIndex] + encodeURIComponent(cleanWord);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout per word
-
-    const response = await fetch(apiUrl, {
-      method: "GET",
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      // If API fails, try fallback API next time
-      currentKBBIApiIndex = (currentKBBIApiIndex + 1) % KBBI_API_URLS.length;
-      console.warn(`KBBI API failed for "${word}", using fallback next time`);
-      return true; // Assume foreign if KBBI check fails
-    }
-
-    const data = await response.json();
-
-    // Check if word was found in KBBI
-    // Different APIs have different response formats
-    const foundInKBBI = data.found === true ||
-                       (data.data && data.data.length > 0) ||
-                       (data.entries && data.entries.length > 0);
-
-    if (foundInKBBI) {
-      console.log(`✅ "${word}" found in KBBI (Indonesian word - FALSE POSITIVE)`);
-      return false; // Word IS in KBBI, so it's NOT foreign
-    } else {
-      console.log(`❌ "${word}" NOT in KBBI (confirmed foreign word)`);
-      return true; // Word NOT in KBBI, so it IS foreign
-    }
-
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.warn(`KBBI verification timeout for "${word}"`);
-    } else {
-      console.error(`KBBI verification error for "${word}":`, error);
-    }
-    // If verification fails, assume it's foreign (keep it)
-    // This prevents losing detections due to network issues
-    return true;
-  }
-}
-
-/**
- * Batch verify words with KBBI
- * Returns only words that are NOT in KBBI (confirmed foreign)
- */
-async function batchVerifyKBBI(words) {
-  const verifiedWords = [];
-  const filteredWords = [];
-
-  console.log(`Starting KBBI verification for ${words.length} unique words...`);
-
-  for (let i = 0; i < words.length; i++) {
-    const wordInfo = words[i];
-    const isNotInKBBI = await verifyWithKBBI(wordInfo.word);
-
-    if (isNotInKBBI) {
-      verifiedWords.push(wordInfo);
-    } else {
-      filteredWords.push(wordInfo.word);
-    }
-
-    // Update progress every 5 words
-    if (i % 5 === 0 || i === words.length - 1) {
-      updateStatus(
-        `🔍 Verifikasi KBBI: ${i + 1}/${words.length} kata...`,
-        "info"
-      );
-    }
-  }
-
-  console.log(`KBBI Verification Summary:`);
-  console.log(`  - Verified foreign words: ${verifiedWords.length}`);
-  console.log(`  - Filtered (found in KBBI): ${filteredWords.length}`);
-  if (filteredWords.length > 0) {
-    console.log(`  - Filtered words:`, filteredWords.join(", "));
-  }
-
-  return {
-    verified: verifiedWords,
-    filtered: filteredWords
-  };
-}
-
-/* =====================
    STATUS & STATISTICS
 ===================== */
 function updateStatus(message, type = "info") {
@@ -330,31 +222,14 @@ async function detectItalic() {
     // Sort by confidence descending
     uniqueWords.sort((a, b) => b.confidence - a.confidence);
 
-    // DUAL VERIFICATION: Verify with KBBI to filter false positives
-    const beforeKBBI = uniqueWords.length;
-    const kbbiResult = await batchVerifyKBBI(uniqueWords);
-    uniqueWords = kbbiResult.verified;
-
-    // Filter detectedSpans to only include KBBI-verified words
-    const verifiedWordsLower = new Set(uniqueWords.map(w => w.word.toLowerCase()));
-    const beforeSpansCount = detectedSpans.length;
-    detectedSpans = detectedSpans.filter(span =>
-      verifiedWordsLower.has(span.word.toLowerCase())
-    );
-
     const endTime = performance.now();
     const processingTime = ((endTime - startTime) / 1000).toFixed(2) + "s";
 
-    // Enhanced status with filtering info
-    const filteredCount = beforeKBBI - uniqueWords.length;
-    const filteredSpansCount = beforeSpansCount - detectedSpans.length;
-    let statusMsg = `✅ Ditemukan ${uniqueWords.length} kata asing unik (${detectedSpans.length} kemunculan)`;
-    if (filteredCount > 0) {
-      statusMsg += ` | Disaring: ${filteredCount} kata (${filteredSpansCount} kemunculan) ditemukan di KBBI`;
-    }
-
     updateStats(detectedSpans.length, formattedCount, processingTime);
-    updateStatus(statusMsg, "success");
+    updateStatus(
+      `✅ Ditemukan ${uniqueWords.length} kata asing unik (${detectedSpans.length} kemunculan) - KBBI filtered di backend`,
+      "success"
+    );
     showDetectedResults(uniqueWords);
     }).catch((error) => {
       console.error("Word.run error:", error);
