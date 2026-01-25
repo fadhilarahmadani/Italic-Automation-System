@@ -25,6 +25,8 @@ logs/
 
 # Data (jika dataset besar)
 # data/*.json  # Uncomment jika dataset > 100MB
+# KBBI database (31MB) - download from setup script
+src/data/dictionary_JSON.json
 
 # Node.js (Word Add-in)
 word-addin/node_modules/

@@ -1,0 +1,27 @@
+================================================================================
+KBBI DATABASE DOWNLOAD REQUIRED
+================================================================================
+
+The file 'dictionary_JSON.json' (31MB, 115,978 words) is NOT included in git
+due to its large size. You must download it before running the API.
+
+AUTOMATIC DOWNLOAD (Recommended):
+---------------------------------
+From project root:
+    bash scripts/setup_kbbi.sh
+
+MANUAL DOWNLOAD:
+----------------
+    cd src/data/
+    curl -L -o dictionary_JSON.json \
+      "https://raw.githubusercontent.com/dyazincahya/KBBI-SQL-database/master/dictionary_JSON.json"
+
+VERIFICATION:
+-------------
+After download, verify the file:
+    ls -lh src/data/dictionary_JSON.json
+    # Should show: ~31M dictionary_JSON.json
+
+See src/data/README.md for more details.
+
+================================================================================

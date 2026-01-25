@@ -56,9 +56,9 @@ module.exports = async (env, options) => {
     },
     plugins: [
       new webpack.DefinePlugin({
-        "process.env": JSON.stringify({
-          REACT_APP_API_URL: envConfig.REACT_APP_API_URL || "http://localhost:8000",
-        }),
+        "process.env.REACT_APP_API_URL": JSON.stringify(
+          envConfig.REACT_APP_API_URL || "http://localhost:8000"
+        ),
       }),
       new HtmlWebpackPlugin({
         filename: "taskpane.html",
