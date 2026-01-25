@@ -16145,11 +16145,11 @@
       "yang",
       "menambahkan",
       "token",
-      "[CLS]",
+      "CLS",
       "di",
       "awal",
       "dan",
-      "[SEP]",
+      "SEP",
       "di",
       "akhir",
       "setiap",
@@ -20310,7 +20310,7 @@
   },
   {
     "id": 743,
-    "sentence": "Fine-tuning pada Large Language Model dilakukan dengan menambahkan classification head di atas representasi token [CLS]",
+    "sentence": "Fine-tuning pada Large Language Model dilakukan dengan menambahkan classification head di atas representasi token [CLS",
     "tokens": [
       "Fine-tuning",
       "pada",
@@ -20326,7 +20326,7 @@
       "atas",
       "representasi",
       "token",
-      "[CLS]"
+      "CLS"
     ],
     "labels": [
       "B",
@@ -20343,7 +20343,7 @@
       "O",
       "O",
       "O",
-      "B"
+      "O"
     ]
   },
   {

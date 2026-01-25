@@ -1,0 +1,89 @@
+================================================================================
+DATASET STATISTICS REPORT
+Italic Detection Dataset
+================================================================================
+
+BASIC STATISTICS
+--------------------------------------------------------------------------------
+Total Samples:          159
+Total Tokens:           1,846
+Total Italic Phrases:   289
+Avg Tokens/Sample:      11.61
+Avg Italic/Sample:      1.82
+
+LABEL DISTRIBUTION
+--------------------------------------------------------------------------------
+O (Non-italic):  1,258 (68.15%)
+B (Begin):       289 (15.66%)
+I (Inside):      299 (16.20%)
+
+SENTENCE LENGTH STATISTICS
+--------------------------------------------------------------------------------
+Minimum:   6
+Maximum:   22
+Mean:      11.61
+Median:    11
+
+ITALIC PHRASE ANALYSIS
+--------------------------------------------------------------------------------
+Unique Phrases:         193
+Total Occurrences:      289
+Avg Repetition:         1.50
+
+PATTERN STATISTICS
+--------------------------------------------------------------------------------
+Contains Hyphen:     28 (9.7%)
+Contains Underscore: 0 (0.0%)
+Contains Numbers:    0 (0.0%)
+All Caps:            8 (2.8%)
+Title Case:          15 (5.2%)
+Likely English:      134 (46.4%)
+
+MOST COMMON ITALIC PHRASES (Top 20)
+--------------------------------------------------------------------------------
+ 1. transformer architecture                               8
+ 2. convolutional neural network                           7
+ 3. machine learning                                       4
+ 4. pipeline                                               3
+ 5. reinforcement learning                                 3
+ 6. computer vision                                        3
+ 7. hyperparameter tuning                                  3
+ 8. augmentation                                           3
+ 9. version control                                        3
+10. part-of-speech tagging                                 3
+11. incident response                                      3
+12. sequence-to-sequence                                   3
+13. big data                                               3
+14. pattern recognition                                    3
+15. fine-tuning                                            3
+16. feature extraction                                     3
+17. load balancing                                         3
+18. software architecture                                  3
+19. intrusion detection                                    3
+20. code review                                            3
+
+MOST COMMON CONTEXT WORDS
+--------------------------------------------------------------------------------
+Words appearing BEFORE italic phrases:
+  dan                     30
+  memanfaatkan            28
+  dengan                  25
+  menerapkan              14
+  melalui                 12
+  mendukung               10
+  menggunakan              8
+  data                     6
+  pendekatan               6
+  melakukan                6
+
+Words appearing AFTER italic phrases:
+  dan                     33
+  pada                    22
+  untuk                   21
+  diterapkan              10
+  sementara                7
+  dalam                    6
+  sebelum                  5
+  lalu                     5
+  digabung                 5
+  di                       5

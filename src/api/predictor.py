@@ -104,6 +104,70 @@ class ItalicDetectionService:
         processing_time = time.time() - start_time
         return results, processing_time
 
+    def _expand_to_word_boundary(self, text: str, start: int, end: int) -> Tuple[int, int]:
+        """
+        Expand span ke batas kata yang utuh (hindari kata terpotong seperti 'prom' dari 'prompt')
+        """
+        # Expand ke kiri sampai awal kata
+        while start > 0 and text[start - 1].isalnum():
+            start -= 1
+        
+        # Expand ke kanan sampai akhir kata
+        while end < len(text) and text[end].isalnum():
+            end += 1
+        
+        return start, end
+
+    def _clean_word(self, word: str) -> Tuple[str, int, int]:
+        """
+        Bersihkan kata dari tanda baca di awal dan akhir.
+        Juga hapus singkatan dalam kurung di akhir.
+        Returns: (cleaned_word, left_offset, right_offset)
+        """
+        import string
+        import re
+        punctuation = string.punctuation + "()[]{}\"'""''«»‹›"
+        
+        original_len = len(word)
+        left_offset = 0
+        right_offset = 0
+        
+        # Hapus singkatan dalam kurung di akhir, contoh: "Natural Language Processing (NLP" -> "Natural Language Processing"
+        # Pattern: spasi + kurung buka + huruf kapital + akhir string
+        abbrev_pattern = r'\s*\([A-Z]+$'
+        match = re.search(abbrev_pattern, word)
+        if match:
+            word = word[:match.start()]
+            right_offset += len(match.group())
+        
+        # Strip dari kiri
+        while word and word[0] in punctuation:
+            word = word[1:]
+            left_offset += 1
+        
+        # Strip dari kanan
+        while word and word[-1] in punctuation:
+            word = word[:-1]
+            right_offset += 1
+        
+        return word, left_offset, right_offset
+
+    def _is_numeric_only(self, word: str) -> bool:
+        """
+        Cek apakah kata hanya berisi angka (dan tanda baca angka seperti . , -)
+        Contoh: "2024", "100.000", "1,234" -> True
+        Contoh: "COVID-19", "Web3" -> False (ada huruf)
+        """
+        import re
+        # Hapus spasi dan cek apakah hanya angka dan tanda baca numerik
+        cleaned = word.strip()
+        if not cleaned:
+            return True
+        
+        # Pattern: hanya angka, titik, koma, spasi, tanda minus
+        numeric_pattern = r'^[\d.,\-\s%]+$'
+        return bool(re.match(numeric_pattern, cleaned))
+
     def extract_italic_phrases(
         self,
         text: str,
@@ -150,12 +214,34 @@ class ItalicDetectionService:
             avg_conf = sum(span["confidences"]) / len(span["confidences"])
 
             if avg_conf >= confidence_threshold:
+                # Expand ke batas kata yang utuh (fix kata terpotong)
+                expanded_start, expanded_end = self._expand_to_word_boundary(
+                    text, span["start_pos"], span["end_pos"]
+                )
+                
+                raw_word = text[expanded_start:expanded_end]
+                
+                # Bersihkan tanda baca dari kata
+                clean_word, left_off, right_off = self._clean_word(raw_word)
+                
+                # Adjust posisi berdasarkan cleaning
+                final_start = expanded_start + left_off
+                final_end = expanded_end - right_off
+                
+                # Skip jika kata kosong setelah cleaning
+                if not clean_word.strip():
+                    continue
+                
+                # Skip jika kata hanya berisi angka
+                if self._is_numeric_only(clean_word):
+                    continue
+                
                 final_results.append({
-                    "start_pos": span["start_pos"],
-                    "end_pos": span["end_pos"],
+                    "start_pos": final_start,
+                    "end_pos": final_end,
                     "confidence": avg_conf,
                     "label": "ITALIC",
-                    "word": text[span["start_pos"]:span["end_pos"]]
+                    "word": clean_word
                 })
 
         return final_results, processing_time
