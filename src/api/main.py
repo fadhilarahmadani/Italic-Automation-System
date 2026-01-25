@@ -26,25 +26,29 @@ from api.models import (
     ErrorResponse
 )
 from api.predictor import get_predictor_service
+from api.kbbi_verifier import get_kbbi_verifier
 from utils import setup_logging
 
 # Setup logging
 logger = setup_logging(__name__, os.getenv("LOG_LEVEL", "INFO"))
 
-# Load predictor on startup/shutdown
+# Load predictor and KBBI verifier on startup/shutdown
 predictor = None
+kbbi_verifier = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
-    global predictor
+    global predictor, kbbi_verifier
     # Startup
     logger.info("="*60)
     logger.info("Starting Italic Automation API")
     logger.info("="*60)
     try:
         predictor = get_predictor_service()
-        logger.info("API ready to serve requests")
+        logger.info("Loading KBBI verifier for dual verification...")
+        kbbi_verifier = get_kbbi_verifier()
+        logger.info("API ready to serve requests with KBBI filtering enabled")
     except Exception as e:
         logger.error(f"Failed to start API: {e}")
         raise
@@ -123,12 +127,30 @@ async def detect_italic(request: DetectRequest):
     Returns list of detected words with positions and confidence scores
     """
     try:
-        # Get predictions
+        # Get predictions from ML model
         italic_phrases, processing_time = predictor.extract_italic_phrases(
             text=request.text,
             confidence_threshold=request.confidence_threshold
         )
-        
+
+        # DUAL VERIFICATION: Filter with KBBI to remove false positives
+        if italic_phrases and kbbi_verifier:
+            detected_words = [phrase["word"] for phrase in italic_phrases]
+            kbbi_result = kbbi_verifier.batch_filter_foreign_words(detected_words)
+            foreign_words_set = set(kbbi_result['foreign'])
+
+            # Keep only foreign words
+            italic_phrases = [
+                phrase for phrase in italic_phrases
+                if phrase["word"] in foreign_words_set
+            ]
+
+            logger.debug(
+                f"ML detected {len(detected_words)}, "
+                f"KBBI filtered {kbbi_result['indonesian_count']}, "
+                f"final {len(italic_phrases)} foreign words"
+            )
+
         # Convert to response model
         italic_words = [
             ItalicWord(
@@ -140,7 +162,7 @@ async def detect_italic(request: DetectRequest):
             )
             for phrase in italic_phrases
         ]
-        
+
         return DetectResponse(
             success=True,
             text=request.text,
@@ -173,17 +195,42 @@ async def batch_detect(request: BatchDetectRequest):
         start_time = time.time()
         results = []
         total_words = 0
-        
+        total_kbbi_filtered = 0
+
         for idx, paragraph in enumerate(request.paragraphs):
             if not paragraph.strip():
                 continue
-            
-            # Detect in this paragraph
+
+            # Detect in this paragraph using ML model
             italic_phrases, _ = predictor.extract_italic_phrases(
                 text=paragraph,
                 confidence_threshold=request.confidence_threshold
             )
-            
+
+            # DUAL VERIFICATION: Filter with KBBI to remove false positives
+            if italic_phrases and kbbi_verifier:
+                # Extract detected words
+                detected_words = [phrase["word"] for phrase in italic_phrases]
+
+                # Filter: keep only words NOT in KBBI (foreign words)
+                kbbi_result = kbbi_verifier.batch_filter_foreign_words(detected_words)
+                foreign_words_set = set(kbbi_result['foreign'])
+
+                # Filter italic_phrases to only include foreign words
+                filtered_phrases = [
+                    phrase for phrase in italic_phrases
+                    if phrase["word"] in foreign_words_set
+                ]
+
+                total_kbbi_filtered += kbbi_result['indonesian_count']
+                logger.debug(
+                    f"Para {idx}: ML detected {len(italic_phrases)}, "
+                    f"KBBI filtered {kbbi_result['indonesian_count']}, "
+                    f"final {len(filtered_phrases)} foreign words"
+                )
+
+                italic_phrases = filtered_phrases
+
             # Convert to response model
             italic_words = [
                 ItalicWord(
@@ -195,18 +242,24 @@ async def batch_detect(request: BatchDetectRequest):
                 )
                 for phrase in italic_phrases
             ]
-            
+
             results.append(ParagraphResult(
                 paragraph_index=idx,
                 text=paragraph,
                 italic_words=italic_words,
                 word_count=len(italic_words)
             ))
-            
+
             total_words += len(italic_words)
-        
+
         processing_time = time.time() - start_time
-        
+
+        logger.info(
+            f"Batch detection: {len(request.paragraphs)} paragraphs, "
+            f"{total_words} foreign words detected, "
+            f"{total_kbbi_filtered} false positives filtered by KBBI"
+        )
+
         return BatchDetectResponse(
             success=True,
             results=results,
