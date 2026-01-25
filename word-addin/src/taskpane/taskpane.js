@@ -218,7 +218,7 @@ async function detectItalic() {
 
     // Convert Map ke array untuk UI
     uniqueWords = Array.from(wordMap.values());
-    
+
     // Sort by confidence descending
     uniqueWords.sort((a, b) => b.confidence - a.confidence);
 
@@ -227,7 +227,7 @@ async function detectItalic() {
 
     updateStats(detectedSpans.length, formattedCount, processingTime);
     updateStatus(
-      `✅ Ditemukan ${uniqueWords.length} kata unik (${detectedSpans.length} total kemunculan)`,
+      `✅ Ditemukan ${uniqueWords.length} kata asing unik (${detectedSpans.length} kemunculan) - KBBI filtered di backend`,
       "success"
     );
     showDetectedResults(uniqueWords);

@@ -1,0 +1,2 @@
+# This directory contains the KBBI database
+# Run: bash scripts/setup_kbbi.sh to download dictionary_JSON.json
