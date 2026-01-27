@@ -322,6 +322,39 @@ async function detectItalic() {
 
           const batchTime = ((performance.now() - batchStartTime) / 1000).toFixed(1);
           console.log(`✅ Batch ${batchIndex + 1} completed in ${batchTime}s`);
+
+          // Parse response JSON
+          const data = await res.json();
+          console.log(`Batch ${batchIndex + 1} Response:`, data);
+
+          // Validasi struktur data dengan lebih detail
+          if (!data || !data.success) {
+            console.error("API Response:", data);
+            throw new Error("API mengembalikan status tidak berhasil");
+          }
+
+          if (!data.results || !Array.isArray(data.results)) {
+            console.error("Invalid data structure:", data);
+            throw new Error("Format respons API tidak valid - results tidak ditemukan");
+          }
+
+          // Adjust paragraph index untuk batch AND filtered paragraphs
+          data.results.forEach((para) => {
+            if (para.italic_words && Array.isArray(para.italic_words)) {
+              // Get original paragraph index from paragraphsToProcess
+              const originalIndex = paragraphsToProcess[start + para.paragraph_index].index;
+
+              para.italic_words.forEach((w) => {
+                detectedSpans.push({
+                  paragraphIndex: originalIndex, // Use original paragraph index!
+                  start: w.start_pos,
+                  end: w.end_pos,
+                  word: w.word,
+                  confidence: w.confidence,
+                });
+              });
+            }
+          });
         } catch (error) {
           clearTimeout(timeoutId);
           if (error.name === 'AbortError') {
@@ -333,39 +366,7 @@ async function detectItalic() {
           }
           throw error;
         }
-
-      const data = await res.json();
-      console.log(`Batch ${batchIndex + 1} Response:`, data);
-
-      // Validasi struktur data dengan lebih detail
-      if (!data || !data.success) {
-        console.error("API Response:", data);
-        throw new Error("API mengembalikan status tidak berhasil");
       }
-
-      if (!data.results || !Array.isArray(data.results)) {
-        console.error("Invalid data structure:", data);
-        throw new Error("Format respons API tidak valid - results tidak ditemukan");
-      }
-
-      // Adjust paragraph index untuk batch AND filtered paragraphs
-      data.results.forEach((para) => {
-        if (para.italic_words && Array.isArray(para.italic_words)) {
-          // Get original paragraph index from paragraphsToProcess
-          const originalIndex = paragraphsToProcess[start + para.paragraph_index].index;
-
-          para.italic_words.forEach((w) => {
-            detectedSpans.push({
-              paragraphIndex: originalIndex, // Use original paragraph index!
-              start: w.start_pos,
-              end: w.end_pos,
-              word: w.word,
-              confidence: w.confidence,
-            });
-          });
-        }
-      });
-    }
 
     // Deduplicate: Kelompokkan kata unik dengan confidence tertinggi dan hitung jumlah kemunculan
     const wordMap = new Map();
