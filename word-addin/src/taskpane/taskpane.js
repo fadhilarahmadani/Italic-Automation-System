@@ -249,23 +249,38 @@ async function detectItalic() {
       console.log(`  Skipped references: ${skippedCount.references}`);
 
       // Update status with filter info
-      if (skippedCount.headers > 0 || skippedCount.references > 0) {
-        updateStatus(
-          `🔍 Memproses ${paragraphsToProcess.length}/${paragraphs.items.length} paragraf ` +
-          `(lewati: ${skippedCount.headers} header, ${skippedCount.references} referensi)`,
-          "info"
-        );
-      }
+      const filterMsg = skippedCount.headers > 0 || skippedCount.references > 0
+        ? ` (lewati: ${skippedCount.headers} header, ${skippedCount.references} referensi)`
+        : '';
+
+      updateStatus(
+        `📝 Memproses ${paragraphsToProcess.length}/${paragraphs.items.length} paragraf${filterMsg}`,
+        "info"
+      );
 
       // STEP 3: Process filtered paragraphs
       const texts = paragraphsToProcess.map(p => p.text);
       const threshold = parseFloat(document.getElementById("threshold").value);
 
-      // Batching: API maksimal 100 paragraphs per request
-      const BATCH_SIZE = 100;
+      // Dynamic batch size based on document size
+      // Larger batches = fewer API calls, but may timeout
+      // Smaller batches = more API calls, but more reliable
+      let BATCH_SIZE = 100;
+      if (texts.length > 500) {
+        BATCH_SIZE = 50; // Smaller batches for very large documents
+        console.log(`⚠️ Large document detected (${texts.length} paragraphs). Using smaller batch size: ${BATCH_SIZE}`);
+      }
+
       const totalBatches = Math.ceil(texts.length / BATCH_SIZE);
-      
-      console.log(`Total paragraphs: ${texts.length}, batches: ${totalBatches}`);
+      console.log(`📦 Processing: ${texts.length} paragraphs in ${totalBatches} batches`);
+
+      // Warn user if document is large
+      if (totalBatches > 3) {
+        updateStatus(
+          `⏳ Dokumen besar (${texts.length} paragraf, ${totalBatches} batch). Mohon tunggu 1-3 menit...`,
+          "info"
+        );
+      }
 
       // Process batches
       for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
@@ -273,32 +288,51 @@ async function detectItalic() {
         const end = Math.min(start + BATCH_SIZE, texts.length);
         const batchTexts = texts.slice(start, end);
 
+        const batchStartTime = performance.now();
+        const estimatedTime = totalBatches > 1 ? ` (~${totalBatches * 20}s total)` : '';
+
         updateStatus(
-          `🔍 Mendeteksi kata asing... (batch ${batchIndex + 1}/${totalBatches})`,
+          `🔍 Batch ${batchIndex + 1}/${totalBatches} (${batchTexts.length} paragraf)${estimatedTime}`,
           "info"
         );
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        // INCREASED TIMEOUT: 90 seconds per batch for large documents (8000+ words)
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-        const res = await fetch(API_URL + "/api/batch-detect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paragraphs: batchTexts,
-            confidence_threshold: threshold,
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
+        try {
+          const res = await fetch(API_URL + "/api/batch-detect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              paragraphs: batchTexts,
+              confidence_threshold: threshold,
+            }),
+            signal: controller.signal
+          });
 
-        // Cek status HTTP
-        if (!res.ok) {
-        const errorText = await res.text();
-        console.error("API Error Response:", errorText);
-        throw new Error(`API error (${res.status}): ${errorText}`);
-      }
+          clearTimeout(timeoutId);
+
+          // Cek status HTTP
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error("API Error Response:", errorText);
+            throw new Error(`API error (${res.status}): ${errorText}`);
+          }
+
+          const batchTime = ((performance.now() - batchStartTime) / 1000).toFixed(1);
+          console.log(`✅ Batch ${batchIndex + 1} completed in ${batchTime}s`);
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            throw new Error(
+              `Timeout pada batch ${batchIndex + 1}/${totalBatches}. ` +
+              `Dokumen terlalu besar (${texts.length} paragraf). ` +
+              `Coba aktifkan filter header/referensi atau bagi dokumen menjadi beberapa bagian.`
+            );
+          }
+          throw error;
+        }
 
       const data = await res.json();
       console.log(`Batch ${batchIndex + 1} Response:`, data);
