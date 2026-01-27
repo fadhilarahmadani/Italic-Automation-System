@@ -153,6 +153,50 @@ body.ms-welcome {
   float: right;
 }
 
+/* ===========================
+   FILTER OPTIONS
+   =========================== */
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.checkbox-group:hover {
+  background-color: #f9fafb;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #667eea;
+  margin: 0;
+}
+
+.checkbox-group label {
+  cursor: pointer;
+  font-size: 11px;
+  color: #374151;
+  font-weight: 500;
+  flex: 1;
+  user-select: none;
+}
+
+.checkbox-group input[type="checkbox"]:checked + label {
+  color: #667eea;
+  font-weight: 600;
+}
+
 .help-text {
   display: block;
   margin-top: 3px;
