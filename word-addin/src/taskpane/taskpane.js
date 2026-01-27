@@ -150,15 +150,20 @@ async function detectItalic() {
     uniqueWords = [];
 
     // Read filter preferences
-    const skipHeaders = document.getElementById("skipHeaders").checked;
     const skipReferences = document.getElementById("skipReferences").checked;
 
     updateStatus("🔍 Mendeteksi kata asing...", "info");
 
     await Word.run(async (context) => {
+      // NOTE: document.body.paragraphs automatically excludes:
+      // - Header sections (kop surat, logo, nama institusi)
+      // - Footer sections (nomor halaman, footer text)
+      // Only main document body content is processed
       const paragraphs = context.document.body.paragraphs;
       paragraphs.load("items");
       await context.sync();
+
+      console.log(`📄 Processing document body only (headers & footers automatically excluded)`);
 
       // Load styles and text for filtering
       paragraphs.items.forEach(p => {
@@ -188,7 +193,7 @@ async function detectItalic() {
 
       // STEP 2: Filter paragraphs
       const paragraphsToProcess = [];
-      const skippedCount = { headers: 0, references: 0 };
+      let skippedReferences = 0;
 
       for (let i = 0; i < paragraphs.items.length; i++) {
         const para = paragraphs.items[i];
@@ -201,24 +206,12 @@ async function detectItalic() {
           continue;
         }
 
-        // FILTER 1: Skip Headers
-        if (skipHeaders &&
-            (style === "Heading 1" ||
-             style === "Heading 2" ||
-             style === "Heading 3" ||
-             style === "Title" ||
-             style === "Subtitle")) {
-          shouldSkip = true;
-          skippedCount.headers++;
-          console.log(`🚫 Skipped header [${style}]: "${text.substring(0, 50)}..."`);
-        }
-
-        // FILTER 2: Skip References (Indonesia format)
+        // FILTER: Skip References (Indonesia format)
         if (skipReferences && !shouldSkip) {
           // Method A: Skip everything after "DAFTAR PUSTAKA" heading
           if (referenceStartIndex !== -1 && i >= referenceStartIndex) {
             shouldSkip = true;
-            skippedCount.references++;
+            skippedReferences++;
             if (i === referenceStartIndex) {
               console.log(`📚 Skipping "DAFTAR PUSTAKA" section starting at paragraph ${i}`);
             }
@@ -227,7 +220,7 @@ async function detectItalic() {
           // Method B: Pattern-based detection (backup)
           if (!shouldSkip && isReferenceParagraph(text, style)) {
             shouldSkip = true;
-            skippedCount.references++;
+            skippedReferences++;
             console.log(`📄 Skipped reference entry: "${text.substring(0, 60)}..."`);
           }
         }
@@ -245,12 +238,11 @@ async function detectItalic() {
       console.log(`📊 Filter Summary:`);
       console.log(`  Total paragraphs: ${paragraphs.items.length}`);
       console.log(`  To process: ${paragraphsToProcess.length}`);
-      console.log(`  Skipped headers: ${skippedCount.headers}`);
-      console.log(`  Skipped references: ${skippedCount.references}`);
+      console.log(`  Skipped references: ${skippedReferences}`);
 
       // Update status with filter info
-      const filterMsg = skippedCount.headers > 0 || skippedCount.references > 0
-        ? ` (lewati: ${skippedCount.headers} header, ${skippedCount.references} referensi)`
+      const filterMsg = skippedReferences > 0
+        ? ` (lewati: ${skippedReferences} referensi)`
         : '';
 
       updateStatus(
