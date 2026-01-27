@@ -109,7 +109,39 @@ function updateStats(detected = null, formatted = null, time = null) {
 }
 
 /* =====================
-   DETECTION
+   HELPER: Detect Reference Paragraph (Indonesia format)
+===================== */
+function isReferenceParagraph(text, style) {
+  // Check style first
+  if (style === "Bibliography" || /referensi|pustaka/i.test(style)) {
+    return true;
+  }
+
+  // Pattern detection untuk format Indonesia
+  const patterns = [
+    /^\[\d+\]/,                    // [1], [2]
+    /^\d+\.\s+[A-Z]/,              // 1. Smith
+    /^[A-Z][a-z]+,\s+[A-Z]\./,     // Koto, F.
+    /,\s*dkk\.?\s*\d{4}/i,         // , dkk. 2020
+    /dkk\.?\s*\(\d{4}\)/i,         // dkk. (2020)
+    /\.\s*\d{4}\./,                // . 2020.
+    /\(\d{4}\)\./,                 // (2020).
+    /https?:\/\//,                 // URLs
+    /DOI:/i,
+    /doi\.org/i,
+    /arXiv:/i,
+    /Proceedings of/i,
+    /hlm\.\s+\d+/i,                // hlm. 1-10
+    /Vol\.\s+\d+/i,
+    /Penerbit/i,
+    /Jakarta|Bandung|Yogyakarta|Surabaya|Semarang/i
+  ];
+
+  return patterns.some(pattern => pattern.test(text));
+}
+
+/* =====================
+   DETECTION (WITH SMART FILTERING)
 ===================== */
 async function detectItalic() {
   try {
@@ -117,30 +149,109 @@ async function detectItalic() {
     detectedSpans = [];
     uniqueWords = [];
 
+    // Auto-skip references (no UI control)
+    const skipReferences = true;
+
     updateStatus("🔍 Mendeteksi kata asing...", "info");
 
     await Word.run(async (context) => {
+      // NOTE: document.body.paragraphs automatically excludes:
+      // - Header sections (kop surat, logo, nama institusi)
+      // - Footer sections (nomor halaman, footer text)
+      // Only main document body content is processed
       const paragraphs = context.document.body.paragraphs;
       paragraphs.load("items");
       await context.sync();
 
-      // Load text for all paragraphs
-      paragraphs.items.forEach(p => p.load("text"));
+      console.log(`📄 Processing document body only (headers & footers automatically excluded)`);
+
+      // Load styles and text for filtering
+      paragraphs.items.forEach(p => {
+        p.load("style");
+        p.load("text");
+      });
       await context.sync();
 
-      // Collect non-empty paragraphs with their original indices
-      const texts = [];
-      const paragraphIndexMap = []; // Maps text array index to original paragraph index
+      // STEP 1: Detect "DAFTAR PUSTAKA" section
+      let referenceStartIndex = -1;
 
-      for (let i = 0; i < paragraphs.items.length; i++) {
-        const text = paragraphs.items[i].text.trim();
-        if (text.length > 0) {
-          texts.push(text);
-          paragraphIndexMap.push(i); // Store original paragraph index
+      if (skipReferences) {
+        for (let i = 0; i < paragraphs.items.length; i++) {
+          const para = paragraphs.items[i];
+          const text = para.text.trim();
+          const style = para.style;
+
+          // Detect "DAFTAR PUSTAKA" heading
+          if ((style === "Heading 1" || style === "Heading 2" || style === "Heading 3") &&
+              /^(DAFTAR\s+PUSTAKA|REFERENSI|BIBLIOGRAPHY)/i.test(text)) {
+            referenceStartIndex = i;
+            console.log(`📚 Found "DAFTAR PUSTAKA" at paragraph ${i}: "${text}"`);
+            break;
+          }
         }
       }
 
-      console.log(`📄 Processing ${texts.length} paragraphs`);
+      // STEP 2: Filter paragraphs
+      const paragraphsToProcess = [];
+      let skippedReferences = 0;
+
+      for (let i = 0; i < paragraphs.items.length; i++) {
+        const para = paragraphs.items[i];
+        const style = para.style;
+        const text = para.text.trim();
+        let shouldSkip = false;
+
+        // Skip empty paragraphs
+        if (text.length === 0) {
+          continue;
+        }
+
+        // FILTER: Skip References (Indonesia format)
+        if (skipReferences && !shouldSkip) {
+          // Method A: Skip everything after "DAFTAR PUSTAKA" heading
+          if (referenceStartIndex !== -1 && i >= referenceStartIndex) {
+            shouldSkip = true;
+            skippedReferences++;
+            if (i === referenceStartIndex) {
+              console.log(`📚 Skipping "DAFTAR PUSTAKA" section starting at paragraph ${i}`);
+            }
+          }
+
+          // Method B: Pattern-based detection (backup)
+          if (!shouldSkip && isReferenceParagraph(text, style)) {
+            shouldSkip = true;
+            skippedReferences++;
+            console.log(`📄 Skipped reference entry: "${text.substring(0, 60)}..."`);
+          }
+        }
+
+        // Add to processing list if not skipped
+        if (!shouldSkip) {
+          paragraphsToProcess.push({
+            index: i,
+            text: text,
+            paragraph: para
+          });
+        }
+      }
+
+      console.log(`📊 Filter Summary:`);
+      console.log(`  Total paragraphs: ${paragraphs.items.length}`);
+      console.log(`  To process: ${paragraphsToProcess.length}`);
+      console.log(`  Skipped references: ${skippedReferences}`);
+
+      // Update status with filter info
+      const filterMsg = skippedReferences > 0
+        ? ` (lewati: ${skippedReferences} referensi)`
+        : '';
+
+      updateStatus(
+        `📝 Memproses ${paragraphsToProcess.length}/${paragraphs.items.length} paragraf${filterMsg}`,
+        "info"
+      );
+
+      // STEP 3: Process filtered paragraphs
+      const texts = paragraphsToProcess.map(p => p.text);
       const threshold = parseFloat(document.getElementById("threshold").value);
 
       // Dynamic batch size based on document size
@@ -219,15 +330,15 @@ async function detectItalic() {
             throw new Error("Format respons API tidak valid - results tidak ditemukan");
           }
 
-          // Adjust paragraph index untuk batch
+          // Adjust paragraph index untuk batch AND filtered paragraphs
           data.results.forEach((para) => {
             if (para.italic_words && Array.isArray(para.italic_words)) {
-              // Get original paragraph index from map
-              const originalIndex = paragraphIndexMap[start + para.paragraph_index];
+              // Get original paragraph index from paragraphsToProcess
+              const originalIndex = paragraphsToProcess[start + para.paragraph_index].index;
 
               para.italic_words.forEach((w) => {
                 detectedSpans.push({
-                  paragraphIndex: originalIndex,
+                  paragraphIndex: originalIndex, // Use original paragraph index!
                   start: w.start_pos,
                   end: w.end_pos,
                   word: w.word,
@@ -242,7 +353,7 @@ async function detectItalic() {
             throw new Error(
               `Timeout pada batch ${batchIndex + 1}/${totalBatches}. ` +
               `Dokumen terlalu besar (${texts.length} paragraf). ` +
-              `Coba bagi dokumen menjadi beberapa bagian.`
+              `Coba aktifkan filter header/referensi atau bagi dokumen menjadi beberapa bagian.`
             );
           }
           throw error;
