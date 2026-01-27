@@ -109,28 +109,170 @@ function updateStats(detected = null, formatted = null, time = null) {
 }
 
 /* =====================
-   DETECTION (WITH DEDUPLICATION)
+   HELPER: Detect Reference Paragraph (Indonesia format)
+===================== */
+function isReferenceParagraph(text, style) {
+  // Check style first
+  if (style === "Bibliography" || /referensi|pustaka/i.test(style)) {
+    return true;
+  }
+
+  // Pattern detection untuk format Indonesia
+  const patterns = [
+    /^\[\d+\]/,                    // [1], [2]
+    /^\d+\.\s+[A-Z]/,              // 1. Smith
+    /^[A-Z][a-z]+,\s+[A-Z]\./,     // Koto, F.
+    /,\s*dkk\.?\s*\d{4}/i,         // , dkk. 2020
+    /dkk\.?\s*\(\d{4}\)/i,         // dkk. (2020)
+    /\.\s*\d{4}\./,                // . 2020.
+    /\(\d{4}\)\./,                 // (2020).
+    /https?:\/\//,                 // URLs
+    /DOI:/i,
+    /doi\.org/i,
+    /arXiv:/i,
+    /Proceedings of/i,
+    /hlm\.\s+\d+/i,                // hlm. 1-10
+    /Vol\.\s+\d+/i,
+    /Penerbit/i,
+    /Jakarta|Bandung|Yogyakarta|Surabaya|Semarang/i
+  ];
+
+  return patterns.some(pattern => pattern.test(text));
+}
+
+/* =====================
+   DETECTION (WITH SMART FILTERING)
 ===================== */
 async function detectItalic() {
   try {
     const startTime = performance.now();
     detectedSpans = [];
     uniqueWords = [];
+
+    // Auto-skip references (no UI control)
+    const skipReferences = true;
+
     updateStatus("🔍 Mendeteksi kata asing...", "info");
 
     await Word.run(async (context) => {
+      // NOTE: document.body.paragraphs automatically excludes:
+      // - Header sections (kop surat, logo, nama institusi)
+      // - Footer sections (nomor halaman, footer text)
+      // Only main document body content is processed
       const paragraphs = context.document.body.paragraphs;
-      paragraphs.load("items/text");
+      paragraphs.load("items");
       await context.sync();
 
-      const texts = paragraphs.items.map((p) => p.text);
+      console.log(`📄 Processing document body only (headers & footers automatically excluded)`);
+
+      // Load styles and text for filtering
+      paragraphs.items.forEach(p => {
+        p.load("style");
+        p.load("text");
+      });
+      await context.sync();
+
+      // STEP 1: Detect "DAFTAR PUSTAKA" section
+      let referenceStartIndex = -1;
+
+      if (skipReferences) {
+        for (let i = 0; i < paragraphs.items.length; i++) {
+          const para = paragraphs.items[i];
+          const text = para.text.trim();
+          const style = para.style;
+
+          // Detect "DAFTAR PUSTAKA" heading
+          if ((style === "Heading 1" || style === "Heading 2" || style === "Heading 3") &&
+              /^(DAFTAR\s+PUSTAKA|REFERENSI|BIBLIOGRAPHY)/i.test(text)) {
+            referenceStartIndex = i;
+            console.log(`📚 Found "DAFTAR PUSTAKA" at paragraph ${i}: "${text}"`);
+            break;
+          }
+        }
+      }
+
+      // STEP 2: Filter paragraphs
+      const paragraphsToProcess = [];
+      let skippedReferences = 0;
+
+      for (let i = 0; i < paragraphs.items.length; i++) {
+        const para = paragraphs.items[i];
+        const style = para.style;
+        const text = para.text.trim();
+        let shouldSkip = false;
+
+        // Skip empty paragraphs
+        if (text.length === 0) {
+          continue;
+        }
+
+        // FILTER: Skip References (Indonesia format)
+        if (skipReferences && !shouldSkip) {
+          // Method A: Skip everything after "DAFTAR PUSTAKA" heading
+          if (referenceStartIndex !== -1 && i >= referenceStartIndex) {
+            shouldSkip = true;
+            skippedReferences++;
+            if (i === referenceStartIndex) {
+              console.log(`📚 Skipping "DAFTAR PUSTAKA" section starting at paragraph ${i}`);
+            }
+          }
+
+          // Method B: Pattern-based detection (backup)
+          if (!shouldSkip && isReferenceParagraph(text, style)) {
+            shouldSkip = true;
+            skippedReferences++;
+            console.log(`📄 Skipped reference entry: "${text.substring(0, 60)}..."`);
+          }
+        }
+
+        // Add to processing list if not skipped
+        if (!shouldSkip) {
+          paragraphsToProcess.push({
+            index: i,
+            text: text,
+            paragraph: para
+          });
+        }
+      }
+
+      console.log(`📊 Filter Summary:`);
+      console.log(`  Total paragraphs: ${paragraphs.items.length}`);
+      console.log(`  To process: ${paragraphsToProcess.length}`);
+      console.log(`  Skipped references: ${skippedReferences}`);
+
+      // Update status with filter info
+      const filterMsg = skippedReferences > 0
+        ? ` (lewati: ${skippedReferences} referensi)`
+        : '';
+
+      updateStatus(
+        `📝 Memproses ${paragraphsToProcess.length}/${paragraphs.items.length} paragraf${filterMsg}`,
+        "info"
+      );
+
+      // STEP 3: Process filtered paragraphs
+      const texts = paragraphsToProcess.map(p => p.text);
       const threshold = parseFloat(document.getElementById("threshold").value);
 
-      // Batching: API maksimal 100 paragraphs per request
-      const BATCH_SIZE = 100;
+      // Dynamic batch size based on document size
+      // Larger batches = fewer API calls, but may timeout
+      // Smaller batches = more API calls, but more reliable
+      let BATCH_SIZE = 100;
+      if (texts.length > 500) {
+        BATCH_SIZE = 50; // Smaller batches for very large documents
+        console.log(`⚠️ Large document detected (${texts.length} paragraphs). Using smaller batch size: ${BATCH_SIZE}`);
+      }
+
       const totalBatches = Math.ceil(texts.length / BATCH_SIZE);
-      
-      console.log(`Total paragraphs: ${texts.length}, batches: ${totalBatches}`);
+      console.log(`📦 Processing: ${texts.length} paragraphs in ${totalBatches} batches`);
+
+      // Warn user if document is large
+      if (totalBatches > 3) {
+        updateStatus(
+          `⏳ Dokumen besar (${texts.length} paragraf, ${totalBatches} batch). Mohon tunggu 1-3 menit...`,
+          "info"
+        );
+      }
 
       // Process batches
       for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
@@ -138,62 +280,85 @@ async function detectItalic() {
         const end = Math.min(start + BATCH_SIZE, texts.length);
         const batchTexts = texts.slice(start, end);
 
+        const batchStartTime = performance.now();
+        const estimatedTime = totalBatches > 1 ? ` (~${totalBatches * 20}s total)` : '';
+
         updateStatus(
-          `🔍 Mendeteksi kata asing... (batch ${batchIndex + 1}/${totalBatches})`,
+          `🔍 Batch ${batchIndex + 1}/${totalBatches} (${batchTexts.length} paragraf)${estimatedTime}`,
           "info"
         );
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        // INCREASED TIMEOUT: 90 seconds per batch for large documents (8000+ words)
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-        const res = await fetch(API_URL + "/api/batch-detect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paragraphs: batchTexts,
-            confidence_threshold: threshold,
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-
-        // Cek status HTTP
-        if (!res.ok) {
-        const errorText = await res.text();
-        console.error("API Error Response:", errorText);
-        throw new Error(`API error (${res.status}): ${errorText}`);
-      }
-
-      const data = await res.json();
-      console.log(`Batch ${batchIndex + 1} Response:`, data);
-
-      // Validasi struktur data dengan lebih detail
-      if (!data || !data.success) {
-        console.error("API Response:", data);
-        throw new Error("API mengembalikan status tidak berhasil");
-      }
-
-      if (!data.results || !Array.isArray(data.results)) {
-        console.error("Invalid data structure:", data);
-        throw new Error("Format respons API tidak valid - results tidak ditemukan");
-      }
-
-      // Adjust paragraph index untuk batch
-      data.results.forEach((para) => {
-        if (para.italic_words && Array.isArray(para.italic_words)) {
-          para.italic_words.forEach((w) => {
-            detectedSpans.push({
-              paragraphIndex: start + para.paragraph_index, // Offset untuk batch
-              start: w.start_pos,
-              end: w.end_pos,
-              word: w.word,
-              confidence: w.confidence,
-            });
+        try {
+          const res = await fetch(API_URL + "/api/batch-detect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              paragraphs: batchTexts,
+              confidence_threshold: threshold,
+            }),
+            signal: controller.signal
           });
+
+          clearTimeout(timeoutId);
+
+          // Cek status HTTP
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error("API Error Response:", errorText);
+            throw new Error(`API error (${res.status}): ${errorText}`);
+          }
+
+          const batchTime = ((performance.now() - batchStartTime) / 1000).toFixed(1);
+          console.log(`✅ Batch ${batchIndex + 1} completed in ${batchTime}s`);
+
+          // Parse response JSON
+          const data = await res.json();
+          console.log(`Batch ${batchIndex + 1} Response:`, data);
+
+          // Validasi struktur data dengan lebih detail
+          if (!data || !data.success) {
+            console.error("API Response:", data);
+            throw new Error("API mengembalikan status tidak berhasil");
+          }
+
+          if (!data.results || !Array.isArray(data.results)) {
+            console.error("Invalid data structure:", data);
+            throw new Error("Format respons API tidak valid - results tidak ditemukan");
+          }
+
+          // Adjust paragraph index untuk batch AND filtered paragraphs
+          data.results.forEach((para) => {
+            if (para.italic_words && Array.isArray(para.italic_words)) {
+              // Get original paragraph index from paragraphsToProcess
+              const originalIndex = paragraphsToProcess[start + para.paragraph_index].index;
+
+              para.italic_words.forEach((w) => {
+                detectedSpans.push({
+                  paragraphIndex: originalIndex, // Use original paragraph index!
+                  start: w.start_pos,
+                  end: w.end_pos,
+                  word: w.word,
+                  confidence: w.confidence,
+                });
+              });
+            }
+          });
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            throw new Error(
+              `Timeout pada batch ${batchIndex + 1}/${totalBatches}. ` +
+              `Dokumen terlalu besar (${texts.length} paragraf). ` +
+              `Coba aktifkan filter header/referensi atau bagi dokumen menjadi beberapa bagian.`
+            );
+          }
+          throw error;
         }
-      });
-    }
+      }
 
     // Deduplicate: Kelompokkan kata unik dengan confidence tertinggi dan hitung jumlah kemunculan
     const wordMap = new Map();
